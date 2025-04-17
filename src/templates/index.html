@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+
+{% block title %}首页 - 校园安全管理系统{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+  <div class="jumbotron">
+    <h1 class="display-4">欢迎使用校园安全管理系统</h1>
+    <p class="lead">本系统提供全面的校园安全管理解决方案，包括设备管理、故障监控、性能分析等功能。</p>
+    <hr class="my-4">
+    <p>点击下方按钮，开始使用系统的所有功能。</p>
+    <a class="btn btn-primary btn-lg" href="{{ url_for('dashboard') }}" role="button">进入仪表盘</a>
+  </div>
+
+  <div class="row mt-5">
+    <div class="col-md-4">
+      <div class="card mb-4">
+        <div class="card-body">
+          <h5 class="card-title">设备管理</h5>
+          <p class="card-text">管理所有校园安全设备，包括摄像头、门禁系统等。</p>
+          <a href="{{ url_for('device.index') }}" class="btn btn-outline-primary">查看详情</a>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card mb-4">
+        <div class="card-body">
+          <h5 class="card-title">故障管理</h5>
+          <p class="card-text">查看和处理所有安全设备的故障报告及修复进度。</p>
+          <a href="{{ url_for('fault.index') }}" class="btn btn-outline-primary">查看详情</a>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card mb-4">
+        <div class="card-body">
+          <h5 class="card-title">维护管理</h5>
+          <p class="card-text">计划和跟踪设备的维护工作，确保系统稳定运行。</p>
+          <a href="{{ url_for('maintenance.index') }}" class="btn btn-outline-primary">查看详情</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

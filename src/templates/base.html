@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}校园安全管理系统{% endblock %}</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <div class="d-flex" id="wrapper">
+        <!-- 侧边栏 -->
+        <div class="sidebar bg-dark" id="sidebar-wrapper">
+            <div class="sidebar-heading text-center py-3">
+                <a href="{{ url_for('index') }}" class="text-decoration-none">
+                    <div class="system-logo mb-2">
+                        <i class="fas fa-shield-alt fa-2x text-light"></i>
+                    </div>
+                    <div class="system-title">
+                        <span class="fs-5 fw-bold text-white d-block">校园安全</span>
+                        <span class="fs-6 text-white-50">管理系统</span>
+                    </div>
+                </a>
+            </div>
+            
+            {% if current_user.is_authenticated %}
+            <div class="list-group list-group-flush mt-2">
+                <a href="{{ url_for('dashboard') }}" class="list-group-item list-group-item-action sidebar-item">
+                    <i class="fas fa-tachometer-alt me-2"></i>仪表盘
+                </a>
+                <a href="{{ url_for('device.index') }}" class="list-group-item list-group-item-action sidebar-item">
+                    <i class="fas fa-server me-2"></i>设备管理
+                </a>
+                <a href="{{ url_for('fault.index') }}" class="list-group-item list-group-item-action sidebar-item">
+                    <i class="fas fa-exclamation-triangle me-2"></i>故障管理
+                </a>
+                <a href="{{ url_for('maintenance.index') }}" class="list-group-item list-group-item-action sidebar-item">
+                    <i class="fas fa-tools me-2"></i>维护管理
+                </a>
+                <a href="{{ url_for('performance.index') }}" class="list-group-item list-group-item-action sidebar-item">
+                    <i class="fas fa-chart-line me-2"></i>性能监控
+                </a>
+                <a href="{{ url_for('system.index') }}" class="list-group-item list-group-item-action sidebar-item">
+                    <i class="fas fa-cog me-2"></i>系统设置
+                </a>
+            </div>
+            {% else %}
+            <div class="py-5 text-center">
+                <div class="text-white-50 mb-4">
+                    <i class="fas fa-lock fa-4x mb-3"></i>
+                    <h5 class="text-white">请先登录</h5>
+                    <p class="small">登录后即可访问完整系统功能</p>
+                </div>
+                <div class="px-4">
+                    <a href="{{ url_for('auth.login') }}" class="btn btn-outline-light btn-sm w-100 mb-2">
+                        <i class="fas fa-sign-in-alt me-2"></i>登录
+                    </a>
+                    <a href="{{ url_for('auth.register') }}" class="btn btn-outline-secondary btn-sm w-100">
+                        <i class="fas fa-user-plus me-2"></i>注册
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- 页面内容 -->
+        <div id="page-content-wrapper">
+            <!-- 顶部导航 -->
+            <nav class="navbar navbar-expand-lg navbar-light top-navbar">
+                <div class="container-fluid">
+                    <button class="btn" id="menu-toggle" aria-label="切换侧边栏">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    
+                    <div class="d-flex ms-auto">
+                        {% if current_user.is_authenticated %}
+                        <div class="nav-item dropdown me-3">
+                            <a class="nav-link position-relative" href="#" id="notificationsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="fas fa-bell"></i>
+                                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                                    3
+                                </span>
+                            </a>
+                            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="notificationsDropdown">
+                                <li><h6 class="dropdown-header">通知中心</h6></li>
+                                <li><a class="dropdown-item" href="#">系统维护通知</a></li>
+                                <li><a class="dropdown-item" href="#">设备巡检提醒</a></li>
+                                <li><a class="dropdown-item" href="#">软件更新完成</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item text-center" href="#">查看全部</a></li>
+                            </ul>
+                        </div>
+                        
+                        <div class="nav-item dropdown user-dropdown">
+                            <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <div class="user-avatar-container me-2">
+                                    <div class="user-avatar-circle">
+                                        <span class="avatar-text">{{ current_user.username[0]|upper }}</span>
+                                    </div>
+                                </div>
+                                <div class="user-info d-none d-md-block">
+                                    <span class="fw-bold">{{ current_user.username }}</span>
+                                    <span class="badge bg-primary ms-1">{{ current_user.role or ('管理员' if current_user.is_admin else '用户') }}</span>
+                                </div>
+                            </a>
+                            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdown">
+                                <li><div class="dropdown-header py-2">
+                                    <div class="d-flex align-items-center">
+                                        <div class="user-avatar-circle-sm me-2">
+                                            <span class="avatar-text-sm">{{ current_user.username[0]|upper }}</span>
+                                        </div>
+                                        <div>
+                                            <div class="fw-bold">{{ current_user.username }}</div>
+                                            <small class="text-muted">{{ current_user.role or ('管理员' if current_user.is_admin else '用户') }}</small>
+                                        </div>
+                                    </div>
+                                </div></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item" href="#"><i class="fas fa-user me-2"></i>个人信息</a></li>
+                                <li><a class="dropdown-item" href="#"><i class="fas fa-cog me-2"></i>账号设置</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item" href="{{ url_for('auth.logout') }}"><i class="fas fa-sign-out-alt me-2"></i>退出登录</a></li>
+                            </ul>
+                        </div>
+                        {% else %}
+                        <div class="nav-item">
+                            <a class="btn btn-primary btn-sm" href="{{ url_for('auth.login') }}">
+                                <i class="fas fa-sign-in-alt me-1"></i>登录
+                            </a>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </nav>
+
+            <!-- 主要内容 -->
+            <div class="content-container">
+                <div class="container-fluid pt-4 px-4">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                            {{ message }}
+                                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+            
+            {% block content %}{% endblock %}
+        </div>
+            </div>
+
+            <!-- 页脚 -->
+            <footer class="footer mt-auto py-3">
+                <div class="container-fluid text-center text-muted">
+                    <div class="footer-brand mb-1">
+                        <i class="fas fa-shield-alt me-2"></i>
+                        <span class="fw-bold">校园安全管理系统</span>
+                    </div>
+                    <p class="small mb-0">© 2025 版权所有</p>
+                </div>
+            </footer>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS Bundle with Popper -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Font Awesome -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/js/all.min.js"></script>
+    <!-- Custom JS -->
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/avatar-generator.js') }}"></script>
+    <script>
+        // 侧边栏切换
+        document.getElementById('menu-toggle').addEventListener('click', function(e) {
+            e.preventDefault();
+            document.getElementById('wrapper').classList.toggle('toggled');
+        });
+    </script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html> 

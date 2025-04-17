@@ -1,0 +1,451 @@
+{% extends 'base.html' %}
+{% block title %}性能分析{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4">
+    <h1 class="mt-4">性能分析</h1>
+    <ol class="breadcrumb mb-4">
+        <li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}">仪表盘</a></li>
+        <li class="breadcrumb-item"><a href="{{ url_for('performance.index') }}">性能监控</a></li>
+        <li class="breadcrumb-item active">性能分析</li>
+    </ol>
+    
+    <div class="row">
+        <div class="col-lg-12">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="fas fa-chart-bar me-1"></i>
+                    性能分析参数
+                </div>
+                <div class="card-body">
+                    <form id="analysisForm" method="get" action="{{ url_for('performance.analyze') }}">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="device_id" class="form-label">设备</label>
+                                    <select class="form-select" id="device_id" name="device_id" required>
+                                        <option value="">-- 请选择设备 --</option>
+                                        {% for device in devices %}
+                                        <option value="{{ device.id }}" {% if selected_device_id == device.id %}selected{% endif %}>
+                                            {{ device.name }} ({{ device.ip_address }})
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="days" class="form-label">分析周期</label>
+                                    <select class="form-select" id="days" name="days">
+                                        <option value="1" {% if days == 1 %}selected{% endif %}>过去24小时</option>
+                                        <option value="7" {% if days == 7 %}selected{% endif %}>过去7天</option>
+                                        <option value="30" {% if days == 30 %}selected{% endif %}>过去30天</option>
+                                        <option value="90" {% if days == 90 %}selected{% endif %}>过去90天</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3 d-flex align-items-end">
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fas fa-search me-1"></i>分析
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    {% if analysis_result %}
+    {% if analysis_result.status == 'success' %}
+    <div class="row">
+        <div class="col-lg-12">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="fas fa-info-circle me-1"></i>
+                    分析概要
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p><strong>设备名称:</strong> {{ analysis_result.device_name }}</p>
+                            <p><strong>分析周期:</strong> {{ analysis_result.analysis_period.start }} 至 {{ analysis_result.analysis_period.end }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>数据样本数:</strong> {{ analysis_result.sample_count }}</p>
+                            <p><strong>分析天数:</strong> {{ analysis_result.analysis_period.days }} 天</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <!-- CPU使用率统计 -->
+        <div class="col-lg-4">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="fas fa-microchip me-1"></i>
+                    CPU使用率统计
+                </div>
+                <div class="card-body">
+                    {% if analysis_result.cpu_usage.samples > 0 %}
+                    <div class="d-flex justify-content-center">
+                        <div style="width: 100%; max-width: 300px;">
+                            <canvas id="cpuChart"></canvas>
+                        </div>
+                    </div>
+                    <hr>
+                    <div class="row mt-3">
+                        <div class="col-md-4 text-center">
+                            <div class="h5">{{ "%.2f"|format(analysis_result.cpu_usage.avg) }}%</div>
+                            <div class="small text-muted">平均值</div>
+                        </div>
+                        <div class="col-md-4 text-center">
+                            <div class="h5">{{ "%.2f"|format(analysis_result.cpu_usage.max) }}%</div>
+                            <div class="small text-muted">最大值</div>
+                        </div>
+                        <div class="col-md-4 text-center">
+                            <div class="h5">{{ "%.2f"|format(analysis_result.cpu_usage.min) }}%</div>
+                            <div class="small text-muted">最小值</div>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-warning">
+                        没有CPU使用率数据
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- 内存使用率统计 -->
+        <div class="col-lg-4">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="fas fa-memory me-1"></i>
+                    内存使用率统计
+                </div>
+                <div class="card-body">
+                    {% if analysis_result.memory_usage.samples > 0 %}
+                    <div class="d-flex justify-content-center">
+                        <div style="width: 100%; max-width: 300px;">
+                            <canvas id="memoryChart"></canvas>
+                        </div>
+                    </div>
+                    <hr>
+                    <div class="row mt-3">
+                        <div class="col-md-4 text-center">
+                            <div class="h5">{{ "%.2f"|format(analysis_result.memory_usage.avg) }}%</div>
+                            <div class="small text-muted">平均值</div>
+                        </div>
+                        <div class="col-md-4 text-center">
+                            <div class="h5">{{ "%.2f"|format(analysis_result.memory_usage.max) }}%</div>
+                            <div class="small text-muted">最大值</div>
+                        </div>
+                        <div class="col-md-4 text-center">
+                            <div class="h5">{{ "%.2f"|format(analysis_result.memory_usage.min) }}%</div>
+                            <div class="small text-muted">最小值</div>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-warning">
+                        没有内存使用率数据
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- 带宽使用率统计 -->
+        <div class="col-lg-4">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="fas fa-network-wired me-1"></i>
+                    带宽使用率统计
+                </div>
+                <div class="card-body">
+                    {% if analysis_result.bandwidth_usage.samples > 0 %}
+                    <div class="d-flex justify-content-center">
+                        <div style="width: 100%; max-width: 300px;">
+                            <canvas id="bandwidthChart"></canvas>
+                        </div>
+                    </div>
+                    <hr>
+                    <div class="row mt-3">
+                        <div class="col-md-4 text-center">
+                            <div class="h5">{{ "%.2f"|format(analysis_result.bandwidth_usage.avg) }}%</div>
+                            <div class="small text-muted">平均值</div>
+                        </div>
+                        <div class="col-md-4 text-center">
+                            <div class="h5">{{ "%.2f"|format(analysis_result.bandwidth_usage.max) }}%</div>
+                            <div class="small text-muted">最大值</div>
+                        </div>
+                        <div class="col-md-4 text-center">
+                            <div class="h5">{{ "%.2f"|format(analysis_result.bandwidth_usage.min) }}%</div>
+                            <div class="small text-muted">最小值</div>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-warning">
+                        没有带宽使用率数据
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 性能评估 -->
+    <div class="row">
+        <div class="col-lg-12">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="fas fa-clipboard-check me-1"></i>
+                    性能评估
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered">
+                            <thead>
+                                <tr>
+                                    <th>指标</th>
+                                    <th>平均值</th>
+                                    <th>状态</th>
+                                    <th>评估</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% if analysis_result.cpu_usage.samples > 0 %}
+                                <tr>
+                                    <td>CPU使用率</td>
+                                    <td>{{ "%.2f"|format(analysis_result.cpu_usage.avg) }}%</td>
+                                    <td>
+                                        {% if analysis_result.cpu_usage.avg < 50 %}
+                                        <span class="badge bg-success">良好</span>
+                                        {% elif analysis_result.cpu_usage.avg < 80 %}
+                                        <span class="badge bg-warning">一般</span>
+                                        {% else %}
+                                        <span class="badge bg-danger">过高</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if analysis_result.cpu_usage.avg < 50 %}
+                                        CPU使用率正常，处于健康水平。
+                                        {% elif analysis_result.cpu_usage.avg < 80 %}
+                                        CPU使用率较高，但仍在可接受范围内。
+                                        {% else %}
+                                        CPU使用率过高，可能影响系统性能，建议排查高负载原因。
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endif %}
+                                
+                                {% if analysis_result.memory_usage.samples > 0 %}
+                                <tr>
+                                    <td>内存使用率</td>
+                                    <td>{{ "%.2f"|format(analysis_result.memory_usage.avg) }}%</td>
+                                    <td>
+                                        {% if analysis_result.memory_usage.avg < 60 %}
+                                        <span class="badge bg-success">良好</span>
+                                        {% elif analysis_result.memory_usage.avg < 85 %}
+                                        <span class="badge bg-warning">一般</span>
+                                        {% else %}
+                                        <span class="badge bg-danger">过高</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if analysis_result.memory_usage.avg < 60 %}
+                                        内存使用率正常，处于健康水平。
+                                        {% elif analysis_result.memory_usage.avg < 85 %}
+                                        内存使用率较高，但仍在可接受范围内。
+                                        {% else %}
+                                        内存使用率过高，可能出现内存不足问题，建议优化内存使用或增加内存容量。
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endif %}
+                                
+                                {% if analysis_result.bandwidth_usage.samples > 0 %}
+                                <tr>
+                                    <td>带宽使用率</td>
+                                    <td>{{ "%.2f"|format(analysis_result.bandwidth_usage.avg) }}%</td>
+                                    <td>
+                                        {% if analysis_result.bandwidth_usage.avg < 40 %}
+                                        <span class="badge bg-success">良好</span>
+                                        {% elif analysis_result.bandwidth_usage.avg < 70 %}
+                                        <span class="badge bg-warning">一般</span>
+                                        {% else %}
+                                        <span class="badge bg-danger">过高</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if analysis_result.bandwidth_usage.avg < 40 %}
+                                        带宽使用率正常，网络通信顺畅。
+                                        {% elif analysis_result.bandwidth_usage.avg < 70 %}
+                                        带宽使用率较高，可能在高峰期出现网络延迟。
+                                        {% else %}
+                                        带宽使用率过高，可能导致网络拥塞，建议增加带宽或优化网络流量。
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="row">
+        <div class="col-lg-12">
+            <div class="alert alert-warning">
+                {{ analysis_result.message }}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+{% if analysis_result and analysis_result.status == 'success' %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js"></script>
+
+<!-- 使用数据属性传递服务器数据到JavaScript -->
+<div id="performance-data" style="display:none"
+    data-has-cpu="{{ analysis_result.cpu_usage.samples > 0 }}"
+    data-has-memory="{{ analysis_result.memory_usage.samples > 0 }}"
+    data-has-bandwidth="{{ analysis_result.bandwidth_usage.samples > 0 }}"
+    {% if analysis_result.cpu_usage.samples > 0 %}
+    data-cpu-avg="{{ analysis_result.cpu_usage.avg }}"
+    data-cpu-color="{% if analysis_result.cpu_usage.avg >= 80 %}rgba(255, 99, 132, 0.8){% elif analysis_result.cpu_usage.avg >= 50 %}rgba(255, 205, 86, 0.8){% else %}rgba(75, 192, 192, 0.8){% endif %}"
+    data-cpu-border="{% if analysis_result.cpu_usage.avg >= 80 %}rgb(255, 99, 132){% elif analysis_result.cpu_usage.avg >= 50 %}rgb(255, 205, 86){% else %}rgb(75, 192, 192){% endif %}"
+    {% endif %}
+    {% if analysis_result.memory_usage.samples > 0 %}
+    data-memory-avg="{{ analysis_result.memory_usage.avg }}"
+    data-memory-color="{% if analysis_result.memory_usage.avg >= 85 %}rgba(255, 99, 132, 0.8){% elif analysis_result.memory_usage.avg >= 60 %}rgba(255, 205, 86, 0.8){% else %}rgba(75, 192, 192, 0.8){% endif %}"
+    data-memory-border="{% if analysis_result.memory_usage.avg >= 85 %}rgb(255, 99, 132){% elif analysis_result.memory_usage.avg >= 60 %}rgb(255, 205, 86){% else %}rgb(75, 192, 192){% endif %}"
+    {% endif %}
+    {% if analysis_result.bandwidth_usage.samples > 0 %}
+    data-bandwidth-avg="{{ analysis_result.bandwidth_usage.avg }}"
+    data-bandwidth-color="{% if analysis_result.bandwidth_usage.avg >= 70 %}rgba(255, 99, 132, 0.8){% elif analysis_result.bandwidth_usage.avg >= 40 %}rgba(255, 205, 86, 0.8){% else %}rgba(75, 192, 192, 0.8){% endif %}"
+    data-bandwidth-border="{% if analysis_result.bandwidth_usage.avg >= 70 %}rgb(255, 99, 132){% elif analysis_result.bandwidth_usage.avg >= 40 %}rgb(255, 205, 86){% else %}rgb(75, 192, 192){% endif %}"
+    {% endif %}
+></div>
+
+<script>
+    $(document).ready(function() {
+        // 从数据属性获取信息
+        var perfData = document.getElementById('performance-data');
+        var hasCpuData = perfData.getAttribute('data-has-cpu') === 'True';
+        var hasMemoryData = perfData.getAttribute('data-has-memory') === 'True';
+        var hasBandwidthData = perfData.getAttribute('data-has-bandwidth') === 'True';
+        
+        // CPU使用率图表
+        if (hasCpuData) {
+            var cpuAvg = parseFloat(perfData.getAttribute('data-cpu-avg'));
+            var cpuColor = perfData.getAttribute('data-cpu-color');
+            var cpuBorderColor = perfData.getAttribute('data-cpu-border');
+            
+            var cpuCtx = document.getElementById('cpuChart').getContext('2d');
+            var cpuChart = new Chart(cpuCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['使用', '空闲'],
+                    datasets: [{
+                        data: [cpuAvg, 100 - cpuAvg],
+                        backgroundColor: [cpuColor, 'rgba(200, 200, 200, 0.2)'],
+                        borderColor: [cpuBorderColor, 'rgb(200, 200, 200)'],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        },
+                        title: {
+                            display: true,
+                            text: 'CPU使用率 (平均)'
+                        }
+                    }
+                }
+            });
+        }
+        
+        // 内存使用率图表
+        if (hasMemoryData) {
+            var memoryAvg = parseFloat(perfData.getAttribute('data-memory-avg'));
+            var memoryColor = perfData.getAttribute('data-memory-color');
+            var memoryBorderColor = perfData.getAttribute('data-memory-border');
+            
+            var memoryCtx = document.getElementById('memoryChart').getContext('2d');
+            var memoryChart = new Chart(memoryCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['使用', '空闲'],
+                    datasets: [{
+                        data: [memoryAvg, 100 - memoryAvg],
+                        backgroundColor: [memoryColor, 'rgba(200, 200, 200, 0.2)'],
+                        borderColor: [memoryBorderColor, 'rgb(200, 200, 200)'],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        },
+                        title: {
+                            display: true,
+                            text: '内存使用率 (平均)'
+                        }
+                    }
+                }
+            });
+        }
+        
+        // 带宽使用率图表
+        if (hasBandwidthData) {
+            var bandwidthAvg = parseFloat(perfData.getAttribute('data-bandwidth-avg'));
+            var bandwidthColor = perfData.getAttribute('data-bandwidth-color');
+            var bandwidthBorderColor = perfData.getAttribute('data-bandwidth-border');
+            
+            var bandwidthCtx = document.getElementById('bandwidthChart').getContext('2d');
+            var bandwidthChart = new Chart(bandwidthCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['使用', '空闲'],
+                    datasets: [{
+                        data: [bandwidthAvg, 100 - bandwidthAvg],
+                        backgroundColor: [bandwidthColor, 'rgba(200, 200, 200, 0.2)'],
+                        borderColor: [bandwidthBorderColor, 'rgb(200, 200, 200)'],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        },
+                        title: {
+                            display: true,
+                            text: '带宽使用率 (平均)'
+                        }
+                    }
+                }
+            });
+        }
+    });
+</script>
+{% endif %}
+{% endblock %} 

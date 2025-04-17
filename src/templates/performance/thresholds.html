@@ -1,0 +1,264 @@
+{% extends 'base.html' %}
+{% block title %}性能阈值管理{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4">
+    <h1 class="mt-4">性能阈值管理</h1>
+    <ol class="breadcrumb mb-4">
+        <li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}">仪表盘</a></li>
+        <li class="breadcrumb-item"><a href="{{ url_for('performance.index') }}">性能监控</a></li>
+        <li class="breadcrumb-item active">阈值管理</li>
+    </ol>
+    
+    <div class="row">
+        <div class="col-lg-12">
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <div>
+                        <i class="fas fa-exclamation-circle me-1"></i>
+                        阈值设置
+                    </div>
+                    <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addThresholdModal">
+                        <i class="fas fa-plus me-1"></i>添加阈值
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-hover" id="thresholdsTable" width="100%" cellspacing="0">
+                            <thead>
+                                <tr>
+                                    <th>设备</th>
+                                    <th>指标名称</th>
+                                    <th>警告阈值</th>
+                                    <th>严重阈值</th>
+                                    <th>创建时间</th>
+                                    <th>更新时间</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for threshold in thresholds %}
+                                <tr>
+                                    <td>{{ threshold.device.name }}</td>
+                                    <td>
+                                        {% if threshold.metric_name == 'cpu_usage' %}
+                                            CPU使用率
+                                        {% elif threshold.metric_name == 'memory_usage' %}
+                                            内存使用率
+                                        {% elif threshold.metric_name == 'bandwidth_usage' %}
+                                            带宽使用率
+                                        {% else %}
+                                            {{ threshold.metric_name }}
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ threshold.warning_threshold }}%</td>
+                                    <td>{{ threshold.critical_threshold }}%</td>
+                                    <td>{{ threshold.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                                    <td>{{ threshold.updated_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                                    <td>
+                                        <button type="button" class="btn btn-primary btn-sm edit-threshold" 
+                                                data-id="{{ threshold.id }}"
+                                                data-device-id="{{ threshold.device_id }}"
+                                                data-metric-name="{{ threshold.metric_name }}"
+                                                data-warning="{{ threshold.warning_threshold }}"
+                                                data-critical="{{ threshold.critical_threshold }}"
+                                                title="编辑阈值">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-danger btn-sm delete-threshold" 
+                                                data-id="{{ threshold.id }}"
+                                                data-device-name="{{ threshold.device.name }}"
+                                                data-metric-name="{% if threshold.metric_name == 'cpu_usage' %}CPU使用率{% elif threshold.metric_name == 'memory_usage' %}内存使用率{% elif threshold.metric_name == 'bandwidth_usage' %}带宽使用率{% else %}{{ threshold.metric_name }}{% endif %}"
+                                                title="删除阈值">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="7" class="text-center">暂无阈值设置</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 添加阈值模态框 -->
+<div class="modal fade" id="addThresholdModal" tabindex="-1" aria-labelledby="addThresholdModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addThresholdModalLabel">添加阈值</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="addThresholdForm" action="{{ url_for('performance.add_threshold') }}" method="post">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="device_id" class="form-label">设备</label>
+                        <select class="form-control" id="device_id" name="device_id" required>
+                            <option value="">-- 请选择设备 --</option>
+                            {% for device in devices %}
+                            <option value="{{ device.id }}">{{ device.name }} ({{ device.ip_address }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="metric_name" class="form-label">监控指标</label>
+                        <select class="form-control" id="metric_name" name="metric_name" required>
+                            <option value="">-- 请选择指标 --</option>
+                            <option value="cpu_usage">CPU使用率</option>
+                            <option value="memory_usage">内存使用率</option>
+                            <option value="bandwidth_usage">带宽使用率</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="warning_threshold" class="form-label">警告阈值 (%)</label>
+                        <input type="number" class="form-control" id="warning_threshold" name="warning_threshold" min="0" max="100" step="0.1" required>
+                        <div class="form-text">当指标值超过警告阈值时触发警告级别告警</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="critical_threshold" class="form-label">严重阈值 (%)</label>
+                        <input type="number" class="form-control" id="critical_threshold" name="critical_threshold" min="0" max="100" step="0.1" required>
+                        <div class="form-text">当指标值超过严重阈值时触发严重级别告警</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-primary">保存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- 编辑阈值模态框 -->
+<div class="modal fade" id="editThresholdModal" tabindex="-1" aria-labelledby="editThresholdModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editThresholdModalLabel">编辑阈值</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="editThresholdForm" action="{{ url_for('performance.update_threshold') }}" method="post">
+                <input type="hidden" id="edit_threshold_id" name="threshold_id">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="edit_device_id" class="form-label">设备</label>
+                        <select class="form-control" id="edit_device_id" name="device_id" required>
+                            <option value="">-- 请选择设备 --</option>
+                            {% for device in devices %}
+                            <option value="{{ device.id }}">{{ device.name }} ({{ device.ip_address }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_metric_name" class="form-label">监控指标</label>
+                        <select class="form-control" id="edit_metric_name" name="metric_name" required>
+                            <option value="">-- 请选择指标 --</option>
+                            <option value="cpu_usage">CPU使用率</option>
+                            <option value="memory_usage">内存使用率</option>
+                            <option value="bandwidth_usage">带宽使用率</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_warning_threshold" class="form-label">警告阈值 (%)</label>
+                        <input type="number" class="form-control" id="edit_warning_threshold" name="warning_threshold" min="0" max="100" step="0.1" required>
+                        <div class="form-text">当指标值超过警告阈值时触发警告级别告警</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_critical_threshold" class="form-label">严重阈值 (%)</label>
+                        <input type="number" class="form-control" id="edit_critical_threshold" name="critical_threshold" min="0" max="100" step="0.1" required>
+                        <div class="form-text">当指标值超过严重阈值时触发严重级别告警</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-primary">保存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- 删除阈值确认模态框 -->
+<div class="modal fade" id="deleteThresholdModal" tabindex="-1" aria-labelledby="deleteThresholdModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteThresholdModalLabel">确认删除</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>确定要删除 <span id="delete-device-name"></span> 的 <span id="delete-metric-name"></span> 阈值设置吗？</p>
+                <p class="text-danger">此操作不可撤销。</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <form id="deleteThresholdForm" action="{{ url_for('performance.delete_threshold') }}" method="post">
+                    <input type="hidden" id="delete_threshold_id" name="threshold_id">
+                    <button type="submit" class="btn btn-danger">删除</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    // 初始化DataTable
+    $('#thresholdsTable').DataTable({
+        language: {
+            url: '//cdn.datatables.net/plug-ins/1.10.25/i18n/Chinese.json'
+        }
+    });
+    
+    // 编辑阈值
+    $('.edit-threshold').click(function() {
+        var id = $(this).data('id');
+        var deviceId = $(this).data('device-id');
+        var metricName = $(this).data('metric-name');
+        var warning = $(this).data('warning');
+        var critical = $(this).data('critical');
+        
+        $('#edit_threshold_id').val(id);
+        $('#edit_device_id').val(deviceId);
+        $('#edit_metric_name').val(metricName);
+        $('#edit_warning_threshold').val(warning);
+        $('#edit_critical_threshold').val(critical);
+        
+        $('#editThresholdModal').modal('show');
+    });
+    
+    // 删除阈值
+    $('.delete-threshold').click(function() {
+        var id = $(this).data('id');
+        var deviceName = $(this).data('device-name');
+        var metricName = $(this).data('metric-name');
+        
+        $('#delete_threshold_id').val(id);
+        $('#delete-device-name').text(deviceName);
+        $('#delete-metric-name').text(metricName);
+        
+        $('#deleteThresholdModal').modal('show');
+    });
+    
+    // 表单验证
+    $('#addThresholdForm, #editThresholdForm').submit(function(e) {
+        var warning = parseFloat($(this).find('[name=warning_threshold]').val());
+        var critical = parseFloat($(this).find('[name=critical_threshold]').val());
+        
+        if (warning >= critical) {
+            e.preventDefault();
+            alert('警告阈值必须小于严重阈值');
+        }
+    });
+});
+</script>
+{% endblock %} 

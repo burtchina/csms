@@ -1,0 +1,634 @@
+{% extends 'base.html' %}
+{% block title %}性能监控{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4">
+    <h1 class="mt-4">性能监控</h1>
+    <ol class="breadcrumb mb-4">
+        <li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}">仪表盘</a></li>
+        <li class="breadcrumb-item active">性能监控</li>
+    </ol>
+    
+    <!-- 控制面板 -->
+    <div class="row">
+        <div class="col-lg-12">
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <div>
+                        <i class="fas fa-chart-line me-1"></i>
+                        设备性能监控面板
+                    </div>
+                    <div>
+                        <a href="{{ url_for('performance.realtime_monitoring') }}" class="btn btn-outline-primary btn-sm me-2">
+                            <i class="fas fa-bolt me-1"></i>实时监控
+                        </a>
+                        <button type="button" id="auto-refresh-btn" class="btn btn-outline-primary btn-sm" data-state="off">
+                            <i class="fas fa-clock me-1"></i><span id="auto-refresh-text">开启自动刷新</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>请选择设备查看性能数据
+                    </div>
+                    <div class="row mt-3">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="device-select">选择设备</label>
+                                <select class="form-select" id="device-select">
+                                    <option value="">-- 请选择设备 --</option>
+                                    {% for device in devices %}
+                                    <option value="{{ device.id }}">{{ device.name }} ({{ device.ip_address }})</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label for="time-range" class="form-label">时间范围</label>
+                                <select class="form-select" id="time-range">
+                                    <option value="6">近6小时</option>
+                                    <option value="12">近12小时</option>
+                                    <option value="24" selected>近24小时</option>
+                                    <option value="48">近48小时</option>
+                                    <option value="72">近72小时</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="mb-3 d-flex align-items-end">
+                                <button type="button" id="refresh-btn" class="btn btn-primary me-2">
+                                    <i class="fas fa-sync-alt me-1"></i>刷新数据
+                                </button>
+                                <form id="collect-form" method="post" action="#">
+                                    <button type="button" id="collect-btn" class="btn btn-success">
+                                        <i class="fas fa-download me-1"></i>采集数据
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 性能数据概览 -->
+    <div class="row" id="performance-overview" style="display: none;">
+        <div class="col-xl-4">
+            <div class="card bg-primary text-white mb-4">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h5 class="mb-0">CPU</h5>
+                            <small>平均使用率</small>
+                        </div>
+                        <div class="text-end">
+                            <h3 id="cpu-avg" class="mb-0">0%</h3>
+                            <small id="cpu-trend"><i class="fas fa-arrow-right"></i> 稳定</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer d-flex align-items-center justify-content-between">
+                    <div><span id="cpu-min">0%</span> (最小)</div>
+                    <div><span id="cpu-max">0%</span> (最大)</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-4">
+            <div class="card bg-success text-white mb-4">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h5 class="mb-0">内存</h5>
+                            <small>平均使用率</small>
+                        </div>
+                        <div class="text-end">
+                            <h3 id="memory-avg" class="mb-0">0%</h3>
+                            <small id="memory-trend"><i class="fas fa-arrow-right"></i> 稳定</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer d-flex align-items-center justify-content-between">
+                    <div><span id="memory-min">0%</span> (最小)</div>
+                    <div><span id="memory-max">0%</span> (最大)</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-4">
+            <div class="card bg-warning text-white mb-4">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h5 class="mb-0">带宽</h5>
+                            <small>平均使用率</small>
+                        </div>
+                        <div class="text-end">
+                            <h3 id="bandwidth-avg" class="mb-0">0%</h3>
+                            <small id="bandwidth-trend"><i class="fas fa-arrow-right"></i> 稳定</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer d-flex align-items-center justify-content-between">
+                    <div><span id="bandwidth-min">0%</span> (最小)</div>
+                    <div><span id="bandwidth-max">0%</span> (最大)</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 图表控制面板 -->
+    <div id="chart-controls" class="row mb-3" style="display: none;">
+        <div class="col-lg-12">
+            <div class="card">
+                <div class="card-body p-2">
+                    <div class="btn-group" role="group" aria-label="图表类型">
+                        <input type="radio" class="btn-check" name="chart-type" id="chart-line" value="line" autocomplete="off" checked>
+                        <label class="btn btn-outline-primary" for="chart-line">线图</label>
+                        
+                        <input type="radio" class="btn-check" name="chart-type" id="chart-bar" value="bar" autocomplete="off">
+                        <label class="btn btn-outline-primary" for="chart-bar">柱状图</label>
+                    </div>
+                    
+                    <div class="btn-group ms-3" role="group" aria-label="数据平滑">
+                        <input type="checkbox" class="btn-check" id="smooth-data" autocomplete="off">
+                        <label class="btn btn-outline-secondary" for="smooth-data">平滑曲线</label>
+                    </div>
+                    
+                    <div class="btn-group ms-3" role="group" aria-label="显示阈值">
+                        <input type="checkbox" class="btn-check" id="show-thresholds" autocomplete="off" checked>
+                        <label class="btn btn-outline-danger" for="show-thresholds">显示阈值线</label>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 性能图表 -->
+    <div class="row" id="performance-charts" style="display: none;">
+        <!-- CPU使用率 -->
+        <div class="col-xl-6">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="fas fa-microchip me-1"></i>
+                    CPU使用率
+                </div>
+                <div class="card-body">
+                    <canvas id="cpuChart" width="100%" height="40"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 内存使用率 -->
+        <div class="col-xl-6">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="fas fa-memory me-1"></i>
+                    内存使用率
+                </div>
+                <div class="card-body">
+                    <canvas id="memoryChart" width="100%" height="40"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 带宽使用率 -->
+        <div class="col-xl-12">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="fas fa-network-wired me-1"></i>
+                    带宽使用率
+                </div>
+                <div class="card-body">
+                    <canvas id="bandwidthChart" width="100%" height="40"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 性能数据表格 -->
+    <div class="row" id="performance-table-section" style="display: none;">
+        <div class="col-lg-12">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="fas fa-table me-1"></i>
+                    性能数据详情
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped" id="performance-table">
+                            <thead>
+                                <tr>
+                                    <th>时间</th>
+                                    <th>CPU使用率 (%)</th>
+                                    <th>内存使用率 (%)</th>
+                                    <th>带宽使用率 (%)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="performance-table-body">
+                                <!-- 数据将通过JS动态加载 -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 阈值设置 -->
+    <div class="row">
+        <div class="col-lg-12">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="fas fa-exclamation-circle me-1"></i>
+                    阈值设置
+                </div>
+                <div class="card-body">
+                    <p>设置性能监控阈值，当设备性能超出阈值时系统将发出警报。</p>
+                    <a href="{{ url_for('performance.thresholds') }}" class="btn btn-primary">
+                        <i class="fas fa-cog me-1"></i>管理阈值
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js"></script>
+<script>
+    // 存储全局图表对象和数据
+    var cpuChart = null;
+    var memoryChart = null;
+    var bandwidthChart = null;
+    var performanceData = null;
+    var autoRefreshInterval = null;
+    
+    $(document).ready(function() {
+        // 设备选择改变时的处理
+        $('#device-select').change(function() {
+            var deviceId = $(this).val();
+            var timeRange = $('#time-range').val();
+            
+            if (deviceId) {
+                // 显示图表区域和控件
+                $('#performance-charts').show();
+                $('#performance-overview').show();
+                $('#chart-controls').show();
+                $('#performance-table-section').show();
+                
+                // 加载性能数据
+                loadPerformanceData(deviceId, timeRange);
+                
+                // 更新采集按钮表单action
+                $('#collect-form').attr('action', '/performance/collect/' + deviceId);
+            } else {
+                // 隐藏图表区域和控件
+                $('#performance-charts').hide();
+                $('#performance-overview').hide();
+                $('#chart-controls').hide();
+                $('#performance-table-section').hide();
+                
+                // 清空采集按钮表单action
+                $('#collect-form').attr('action', '#');
+                
+                // 停止自动刷新
+                stopAutoRefresh();
+            }
+        });
+        
+        // 采集数据按钮点击事件
+        $('#collect-btn').click(function() {
+            var deviceId = $('#device-select').val();
+            if (deviceId) {
+                $('#collect-form').submit();
+            } else {
+                alert('请先选择一个设备');
+            }
+        });
+        
+        // 刷新数据按钮点击事件
+        $('#refresh-btn').click(function() {
+            var deviceId = $('#device-select').val();
+            var timeRange = $('#time-range').val();
+            if (deviceId) {
+                loadPerformanceData(deviceId, timeRange);
+            } else {
+                alert('请先选择一个设备');
+            }
+        });
+        
+        // 图表类型切换
+        $('input[name="chart-type"]').change(function() {
+            if (performanceData) {
+                updateCharts(performanceData);
+            }
+        });
+        
+        // 平滑曲线切换
+        $('#smooth-data').change(function() {
+            if (performanceData) {
+                updateCharts(performanceData);
+            }
+        });
+        
+        // 阈值线显示切换
+        $('#show-thresholds').change(function() {
+            if (performanceData) {
+                updateCharts(performanceData);
+            }
+        });
+        
+        // 时间范围改变
+        $('#time-range').change(function() {
+            var deviceId = $('#device-select').val();
+            var timeRange = $(this).val();
+            if (deviceId) {
+                loadPerformanceData(deviceId, timeRange);
+            }
+        });
+        
+        // 自动刷新切换
+        $('#auto-refresh-btn').click(function() {
+            var btn = $(this);
+            var state = btn.data('state');
+            
+            if (state === 'off') {
+                startAutoRefresh();
+                btn.data('state', 'on');
+                $('#auto-refresh-text').text('关闭自动刷新');
+                btn.removeClass('btn-outline-primary').addClass('btn-primary');
+            } else {
+                stopAutoRefresh();
+                btn.data('state', 'off');
+                $('#auto-refresh-text').text('开启自动刷新');
+                btn.removeClass('btn-primary').addClass('btn-outline-primary');
+            }
+        });
+        
+        // 加载性能数据并绘制图表
+        function loadPerformanceData(deviceId, timeRange) {
+            $.ajax({
+                url: '/performance/data',
+                type: 'GET',
+                data: {
+                    device_id: deviceId,
+                    time_range: timeRange
+                },
+                success: function(response) {
+                    if (response.status === 'success') {
+                        performanceData = response.data;
+                        updateCharts(performanceData);
+                        updateStats(performanceData);
+                        updateTable(performanceData);
+                    } else {
+                        alert('加载性能数据失败: ' + response.message);
+                    }
+                },
+                error: function() {
+                    alert('网络错误，请稍后再试');
+                }
+            });
+        }
+        
+        // 更新统计信息
+        function updateStats(data) {
+            if (!data || !data.cpu_usage || data.cpu_usage.length === 0) return;
+            
+            // 计算统计值
+            var cpuValues = data.cpu_usage;
+            var memoryValues = data.memory_usage;
+            var bandwidthValues = data.bandwidth_usage;
+            
+            var cpuAvg = calculateAverage(cpuValues);
+            var cpuMin = Math.min(...cpuValues);
+            var cpuMax = Math.max(...cpuValues);
+            
+            var memoryAvg = calculateAverage(memoryValues);
+            var memoryMin = Math.min(...memoryValues);
+            var memoryMax = Math.max(...memoryValues);
+            
+            var bandwidthAvg = calculateAverage(bandwidthValues);
+            var bandwidthMin = Math.min(...bandwidthValues);
+            var bandwidthMax = Math.max(...bandwidthValues);
+            
+            // 更新统计显示
+            $('#cpu-avg').text(cpuAvg.toFixed(1) + '%');
+            $('#cpu-min').text(cpuMin.toFixed(1) + '%');
+            $('#cpu-max').text(cpuMax.toFixed(1) + '%');
+            
+            $('#memory-avg').text(memoryAvg.toFixed(1) + '%');
+            $('#memory-min').text(memoryMin.toFixed(1) + '%');
+            $('#memory-max').text(memoryMax.toFixed(1) + '%');
+            
+            $('#bandwidth-avg').text(bandwidthAvg.toFixed(1) + '%');
+            $('#bandwidth-min').text(bandwidthMin.toFixed(1) + '%');
+            $('#bandwidth-max').text(bandwidthMax.toFixed(1) + '%');
+            
+            // 计算趋势
+            var cpuTrend = calculateTrend(cpuValues);
+            var memoryTrend = calculateTrend(memoryValues);
+            var bandwidthTrend = calculateTrend(bandwidthValues);
+            
+            updateTrendIndicator('#cpu-trend', cpuTrend);
+            updateTrendIndicator('#memory-trend', memoryTrend);
+            updateTrendIndicator('#bandwidth-trend', bandwidthTrend);
+        }
+        
+        // 计算平均值
+        function calculateAverage(values) {
+            var sum = values.reduce((a, b) => a + b, 0);
+            return sum / values.length;
+        }
+        
+        // 计算趋势
+        function calculateTrend(values) {
+            if (values.length < 2) return 0;
+            
+            // 只比较最近的几个值
+            var sampleSize = Math.min(values.length, 5);
+            var recentValues = values.slice(-sampleSize);
+            
+            var firstAvg = calculateAverage(recentValues.slice(0, Math.ceil(sampleSize/2)));
+            var lastAvg = calculateAverage(recentValues.slice(-Math.floor(sampleSize/2)));
+            
+            // 计算差异比例
+            var diff = lastAvg - firstAvg;
+            
+            // 返回趋势：-1(下降), 0(稳定), 1(上升)
+            if (Math.abs(diff) < 2.0) return 0;
+            return diff > 0 ? 1 : -1;
+        }
+        
+        // 更新趋势指示器
+        function updateTrendIndicator(selector, trend) {
+            if (trend > 0) {
+                $(selector).html('<i class="fas fa-arrow-up"></i> 上升');
+            } else if (trend < 0) {
+                $(selector).html('<i class="fas fa-arrow-down"></i> 下降');
+            } else {
+                $(selector).html('<i class="fas fa-arrow-right"></i> 稳定');
+            }
+        }
+        
+        // 更新表格
+        function updateTable(data) {
+            if (!data || !data.timestamps || data.timestamps.length === 0) return;
+            
+            var tableBody = $('#performance-table-body');
+            tableBody.empty();
+            
+            // 根据时间从新到旧排序
+            var rows = [];
+            for (var i = 0; i < data.timestamps.length; i++) {
+                rows.push({
+                    time: data.timestamps[i],
+                    cpu: data.cpu_usage[i],
+                    memory: data.memory_usage[i],
+                    bandwidth: data.bandwidth_usage[i]
+                });
+            }
+            
+            // 倒序排列
+            rows.reverse();
+            
+            // 显示前20条记录
+            rows = rows.slice(0, 20);
+            
+            // 创建表格行
+            for (var i = 0; i < rows.length; i++) {
+                var row = rows[i];
+                var tr = $('<tr>');
+                tr.append($('<td>').text(row.time));
+                tr.append($('<td>').text(row.cpu.toFixed(1)));
+                tr.append($('<td>').text(row.memory.toFixed(1)));
+                tr.append($('<td>').text(row.bandwidth.toFixed(1)));
+                tableBody.append(tr);
+            }
+        }
+        
+        // 绘制/更新图表
+        function updateCharts(data) {
+            if (!data || !data.timestamps || data.timestamps.length === 0) return;
+            
+            var chartType = $('input[name="chart-type"]:checked').val();
+            var smoothData = $('#smooth-data').is(':checked');
+            var tension = smoothData ? 0.4 : 0;
+            
+            // CPU使用率图表
+            var cpuCtx = document.getElementById('cpuChart').getContext('2d');
+            
+            // 销毁旧图表
+            if (cpuChart) cpuChart.destroy();
+            
+            cpuChart = new Chart(cpuCtx, {
+                type: chartType,
+                data: {
+                    labels: data.timestamps,
+                    datasets: [{
+                        label: 'CPU使用率 (%)',
+                        data: data.cpu_usage,
+                        backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        borderWidth: 1,
+                        tension: tension
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100
+                        }
+                    }
+                }
+            });
+            
+            // 内存使用率图表
+            var memoryCtx = document.getElementById('memoryChart').getContext('2d');
+            
+            // 销毁旧图表
+            if (memoryChart) memoryChart.destroy();
+            
+            memoryChart = new Chart(memoryCtx, {
+                type: chartType,
+                data: {
+                    labels: data.timestamps,
+                    datasets: [{
+                        label: '内存使用率 (%)',
+                        data: data.memory_usage,
+                        backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        borderWidth: 1,
+                        tension: tension
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100
+                        }
+                    }
+                }
+            });
+            
+            // 带宽使用率图表
+            var bandwidthCtx = document.getElementById('bandwidthChart').getContext('2d');
+            
+            // 销毁旧图表
+            if (bandwidthChart) bandwidthChart.destroy();
+            
+            bandwidthChart = new Chart(bandwidthCtx, {
+                type: chartType,
+                data: {
+                    labels: data.timestamps,
+                    datasets: [{
+                        label: '带宽使用率 (%)',
+                        data: data.bandwidth_usage,
+                        backgroundColor: 'rgba(255, 206, 86, 0.2)',
+                        borderColor: 'rgba(255, 206, 86, 1)',
+                        borderWidth: 1,
+                        tension: tension
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100
+                        }
+                    }
+                }
+            });
+        }
+        
+        // 开始自动刷新
+        function startAutoRefresh() {
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+            }
+            
+            autoRefreshInterval = setInterval(function() {
+                var deviceId = $('#device-select').val();
+                var timeRange = $('#time-range').val();
+                if (deviceId) {
+                    loadPerformanceData(deviceId, timeRange);
+                }
+            }, 60000); // 每分钟刷新一次
+        }
+        
+        // 停止自动刷新
+        function stopAutoRefresh() {
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+                autoRefreshInterval = null;
+            }
+        }
+    });
+</script>
+{% endblock %} 

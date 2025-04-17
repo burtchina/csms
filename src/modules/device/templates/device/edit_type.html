@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+
+{% block title %}编辑设备类型{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 text-gray-800">编辑设备类型</h1>
+        <a href="{{ url_for('device.types') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> 返回类型列表
+        </a>
+    </div>
+
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">类型信息</h6>
+        </div>
+        <div class="card-body">
+            <form method="post" action="{{ url_for('device.edit_type', type_id=device_type.id) }}">
+                <div class="mb-3">
+                    <label for="name" class="form-label">类型名称 <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" id="name" name="name" value="{{ device_type.name }}" required>
+                    <div class="form-text text-muted">输入一个唯一的设备类型名称</div>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="description" class="form-label">类型描述</label>
+                    <textarea class="form-control" id="description" name="description" rows="4">{{ device_type.description or '' }}</textarea>
+                    <div class="form-text text-muted">简要描述此类型设备的特点和用途</div>
+                </div>
+                
+                <div class="row mt-3">
+                    <div class="col-12">
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <p class="mb-1"><strong>创建时间:</strong> {{ device_type.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <p class="mb-1"><strong>最后更新:</strong> {{ device_type.updated_at.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+                                    </div>
+                                </div>
+                                <div class="row mt-2">
+                                    <div class="col-12">
+                                        <p class="mb-1"><strong>关联设备数量:</strong> {{ device_type.devices.count() }}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="d-flex justify-content-between mt-4">
+                    <button type="button" class="btn btn-danger" onclick="confirmDelete('{{ device_type.id }}', '{{ device_type.name }}', {{ device_type.devices.count() }})">删除</button>
+                    <button type="submit" class="btn btn-primary">保存更改</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- 删除确认模态框 -->
+<div class="modal fade" id="deleteModal" tabindex="-1" role="dialog" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteModalLabel">确认删除</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                您确定要删除设备类型 <span id="typeName" class="font-weight-bold"></span> 吗？
+                <div id="typeWarning" class="alert alert-danger mt-2" style="display: none;">
+                    无法删除：此类型下有 <span id="deviceCount"></span> 个设备！请先修改或删除这些设备。
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">取消</button>
+                <form id="deleteForm" method="post">
+                    <button type="submit" id="confirmDeleteBtn" class="btn btn-danger">确认删除</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function confirmDelete(typeId, typeName, deviceCount) {
+        document.getElementById('typeName').textContent = typeName;
+        document.getElementById('deleteForm').action = "{{ url_for('device.delete_type', type_id=0) }}".replace('0', typeId);
+        
+        // 检查是否有设备使用此类型
+        if (deviceCount > 0) {
+            document.getElementById('deviceCount').textContent = deviceCount;
+            document.getElementById('typeWarning').style.display = 'block';
+            document.getElementById('confirmDeleteBtn').disabled = true;
+        } else {
+            document.getElementById('typeWarning').style.display = 'none';
+            document.getElementById('confirmDeleteBtn').disabled = false;
+        }
+        
+        $('#deleteModal').modal('show');
+    }
+</script>
+{% endblock %} 

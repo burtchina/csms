@@ -1,0 +1,246 @@
+{% extends "base.html" %}
+
+{% block title %}设备详情{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 text-gray-800">设备详情</h1>
+        <div>
+            <a href="{{ url_for('device.edit', device_id=device.id) }}" class="btn btn-primary">
+                <i class="fas fa-edit"></i> 编辑设备
+            </a>
+            <a href="{{ url_for('device.index') }}" class="btn btn-secondary ml-2">
+                <i class="fas fa-arrow-left"></i> 返回列表
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-4">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">基本信息</h6>
+                </div>
+                <div class="card-body">
+                    <div class="text-center mb-4">
+                        <i class="fas fa-server fa-5x text-gray-300 mb-3"></i>
+                        <h4 class="font-weight-bold">{{ device.name }}</h4>
+                        <p class="text-muted">
+                            {% if device.status == '正常' %}
+                            <span class="badge badge-success">{{ device.status }}</span>
+                            {% elif device.status == '维修中' %}
+                            <span class="badge badge-warning">{{ device.status }}</span>
+                            {% elif device.status == '报废' %}
+                            <span class="badge badge-danger">{{ device.status }}</span>
+                            {% elif device.status == '闲置' %}
+                            <span class="badge badge-info">{{ device.status }}</span>
+                            {% else %}
+                            <span class="badge badge-secondary">{{ device.status }}</span>
+                            {% endif %}
+                        </p>
+                    </div>
+                    <table class="table table-borderless">
+                        <tbody>
+                            <tr>
+                                <th>设备ID:</th>
+                                <td>{{ device.id }}</td>
+                            </tr>
+                            <tr>
+                                <th>设备编码:</th>
+                                <td>{{ device.device_code }}</td>
+                            </tr>
+                            <tr>
+                                <th>设备类型:</th>
+                                <td>{{ device.device_type.name if device.device_type else '-' }}</td>
+                            </tr>
+                            <tr>
+                                <th>位置:</th>
+                                <td>{{ device.location or '-' }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-8">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">详细信息</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h5 class="small font-weight-bold">网络信息</h5>
+                            <table class="table table-sm">
+                                <tbody>
+                                    <tr>
+                                        <th>IP地址:</th>
+                                        <td>{{ device.ip_address or '-' }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>MAC地址:</th>
+                                        <td>{{ device.mac_address or '-' }}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="col-md-6">
+                            <h5 class="small font-weight-bold">访问凭证</h5>
+                            <table class="table table-sm">
+                                <tbody>
+                                    <tr>
+                                        <th>设备账号:</th>
+                                        <td>{{ device.username or '未设置' }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>设备密码:</th>
+                                        <td>{% if device.password %}已设置{% else %}未设置{% endif %}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="row mt-4">
+                        <div class="col-md-6">
+                            <h5 class="small font-weight-bold">硬件信息</h5>
+                            <table class="table table-sm">
+                                <tbody>
+                                    <tr>
+                                        <th>制造商:</th>
+                                        <td>{{ device.manufacturer or '-' }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>型号:</th>
+                                        <td>{{ device.model or '-' }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>序列号:</th>
+                                        <td>{{ device.serial_number or '-' }}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="col-md-6">
+                            <h5 class="small font-weight-bold">采购信息</h5>
+                            <table class="table table-sm">
+                                <tbody>
+                                    <tr>
+                                        <th>购买日期:</th>
+                                        <td>{{ device.purchase_date.strftime('%Y-%m-%d') if device.purchase_date else '-' }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>保修期(月):</th>
+                                        <td>{{ device.warranty_period or '-' }}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="row mt-4">
+                        <div class="col-md-6">
+                            <h5 class="small font-weight-bold">维护信息</h5>
+                            <table class="table table-sm">
+                                <tbody>
+                                    <tr>
+                                        <th>最后维护:</th>
+                                        <td>{{ device.last_maintenance.strftime('%Y-%m-%d') if device.last_maintenance else '无记录' }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>下次维护:</th>
+                                        <td>{{ device.next_maintenance.strftime('%Y-%m-%d') if device.next_maintenance else '未排期' }}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="col-md-6">
+                            <h5 class="small font-weight-bold">备注</h5>
+                            <div class="border rounded p-3 bg-light">
+                                {% if device.notes %}
+                                <p class="mb-0">{{ device.notes }}</p>
+                                {% else %}
+                                <p class="text-muted mb-0">无备注信息</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row mt-4">
+                        <div class="col-12">
+                            <h5 class="small font-weight-bold">系统信息</h5>
+                            <table class="table table-sm">
+                                <tbody>
+                                    <tr>
+                                        <th>创建时间:</th>
+                                        <td>{{ device.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>最后更新:</th>
+                                        <td>{{ device.updated_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                    <h6 class="m-0 font-weight-bold text-primary">操作</h6>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ url_for('device.edit', device_id=device.id) }}" class="btn btn-primary">
+                            <i class="fas fa-edit"></i> 编辑设备
+                        </a>
+                        <button type="button" class="btn btn-danger" onclick="confirmDelete('{{ device.id }}', '{{ device.name }}')">
+                            <i class="fas fa-trash"></i> 删除设备
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 删除确认模态框 -->
+<div class="modal fade" id="deleteModal" tabindex="-1" role="dialog" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteModalLabel">确认删除</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                您确定要删除设备 <span id="deviceName" class="font-weight-bold"></span> 吗？此操作不可撤销。
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">取消</button>
+                <form id="deleteForm" method="post">
+                    <button type="submit" class="btn btn-danger">确认删除</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function confirmDelete(deviceId, deviceName) {
+        document.getElementById('deviceName').textContent = deviceName;
+        document.getElementById('deleteForm').action = "{{ url_for('device.delete', device_id=0) }}".replace('0', deviceId);
+        $('#deleteModal').modal('show');
+    }
+</script>
+{% endblock %} 
