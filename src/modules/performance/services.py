@@ -12,9 +12,22 @@ import sys
 import threading
 import queue
 import re
+import os
 from datetime import datetime, timedelta
 from typing import Dict, List, Union, Optional, Tuple
 from sqlalchemy.exc import SQLAlchemyError
+
+# 确保Python能找到pysnmp包
+try:
+    # 获取site-packages路径
+    import site
+    site_packages = site.getsitepackages()
+    # 添加到系统路径
+    for path in site_packages:
+        if path not in sys.path:
+            sys.path.append(path)
+except Exception as e:
+    logging.warning(f"调整Python路径失败: {str(e)}")
 
 try:
     from netmiko import ConnectHandler
@@ -24,12 +37,21 @@ except ImportError:
     NETMIKO_AVAILABLE = False
     logging.warning("Netmiko未安装，将使用模拟数据")
 
+# 使用SNMP辅助模块代替直接导入PySnmp
 try:
-    from pysnmp.hlapi import *
-    SNMP_AVAILABLE = True
-except ImportError:
+    from src.core.snmp_helper import (
+        get_snmp_data, 
+        get_snmp_bulk, 
+        snmp_walk, 
+        SNMP_AVAILABLE
+    )
+    if SNMP_AVAILABLE:
+        logging.info("成功导入SNMP辅助模块，SNMP功能可用")
+    else:
+        logging.warning("SNMP辅助模块已导入，但PySnmp不可用，将使用模拟数据")
+except ImportError as e:
     SNMP_AVAILABLE = False
-    logging.warning("PySnmp未安装，将使用模拟数据")
+    logging.warning(f"导入SNMP辅助模块失败: {str(e)}，将使用模拟数据")
 
 from src.db import db
 from src.core.models import Device, PerformanceRecord, Threshold, Alert

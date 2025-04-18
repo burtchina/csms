@@ -8,6 +8,20 @@
 import os
 import sys
 import argparse
+import logging
+import warnings
+import importlib
+
+# 设置环境变量以抑制cryptography警告
+os.environ['PYTHONWARNINGS'] = 'ignore:.*TripleDES.*:DeprecationWarning'
+os.environ['PYTHONWARNINGS'] = 'ignore:.*Blowfish.*:DeprecationWarning'
+os.environ['CRYPTOGRAPHY_SUPPRESS_DEPRECATION_WARNINGS'] = '1'
+
+# 忽略Cryptography和Paramiko相关警告
+warnings.filterwarnings('ignore', category=DeprecationWarning, module='cryptography')
+warnings.filterwarnings('ignore', category=DeprecationWarning, module='paramiko')
+warnings.filterwarnings('ignore', message='.*TripleDES.*')
+warnings.filterwarnings('ignore', message='.*Blowfish.*')
 
 # 将src目录添加到Python路径中
 base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
