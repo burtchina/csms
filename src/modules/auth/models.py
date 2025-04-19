@@ -13,6 +13,7 @@ from src.db import db
 
 
 class User(db.Model, UserMixin):
+    __table_args__ = {'extend_existing': True}
     """用户模型"""
     __tablename__ = 'users'
 

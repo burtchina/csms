@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+
+{% block title %}登录 - 校园安全管理系统{% endblock %}
+
+{% block content %}
+<div class="container my-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-5 col-md-7">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white text-center py-3">
+                    <h4 class="mb-0"><i class="fas fa-shield-alt me-2"></i>用户登录</h4>
+                </div>
+                <div class="card-body p-4">
+                    <form method="POST" action="{{ url_for('auth.login') }}">
+                        <div class="mb-3">
+                            <label for="username" class="form-label">用户名</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="fas fa-user"></i></span>
+                                <input type="text" class="form-control" id="username" name="username" required placeholder="请输入用户名">
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="password" class="form-label">密码</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="fas fa-lock"></i></span>
+                                <input type="password" class="form-control" id="password" name="password" required placeholder="请输入密码">
+                            </div>
+                        </div>
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="remember" name="remember">
+                            <label class="form-check-label" for="remember">记住我</label>
+                        </div>
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-sign-in-alt me-2"></i>登录
+                            </button>
+                        </div>
+                    </form>
+                </div>
+                <div class="card-footer text-center py-3">
+                    <div class="small mb-2">
+                        <a href="{{ url_for('auth.register') }}" class="text-decoration-none">
+                            <i class="fas fa-user-plus me-1"></i>注册新账号
+                        </a>
+                    </div>
+                    <div class="small">
+                        <a href="{{ url_for('auth.reset_password') }}" class="text-decoration-none">
+                            <i class="fas fa-key me-1"></i>忘记密码?
+                        </a>
+                    </div>
+                </div>
+            </div>
+            <div class="text-center mt-3 text-muted">
+                <small>登录系统即表示您已同意我们的<a href="#" class="text-decoration-none">服务条款</a>和<a href="#" class="text-decoration-none">隐私政策</a></small>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

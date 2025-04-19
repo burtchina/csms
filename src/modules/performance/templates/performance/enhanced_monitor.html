@@ -1,0 +1,564 @@
+{% extends "base.html" %}
+
+{% block title %}增强版设备监控 - {{ device.name }}{% endblock %}
+
+{% block styles %}
+<style>
+    .card-counter {
+        box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.15);
+        margin-bottom: 20px;
+        padding: 20px;
+        transition: 0.3s;
+        border-radius: 8px;
+    }
+    .card-counter:hover {
+        box-shadow: 0px 8px 16px rgba(0, 0, 0, 0.2);
+    }
+    .card-counter.primary {
+        background-color: #3f51b5;
+        color: #FFF;
+    }
+    .card-counter.danger {
+        background-color: #ef5350;
+        color: #FFF;
+    }
+    .card-counter.success {
+        background-color: #4caf50;
+        color: #FFF;
+    }
+    .card-counter.info {
+        background-color: #2196F3;
+        color: #FFF;
+    }
+    .card-counter .count-numbers {
+        font-size: 32px;
+        display: block;
+    }
+    .card-counter .count-name {
+        font-size: 18px;
+        text-transform: uppercase;
+        margin-top: 5px;
+    }
+    .gauge-container {
+        width: 100%;
+        height: 200px;
+        margin: 0 auto;
+    }
+    .interface-card {
+        margin-bottom: 15px;
+        box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.1);
+        border-radius: 8px;
+    }
+    .interface-status-up {
+        color: #4caf50;
+    }
+    .interface-status-down {
+        color: #ef5350;
+    }
+    #command-output {
+        background-color: #2d2d2d;
+        color: #eaeaea;
+        padding: 15px;
+        border-radius: 5px;
+        font-family: monospace;
+        white-space: pre-wrap;
+        max-height: 300px;
+        overflow-y: auto;
+    }
+    .device-info dt {
+        font-weight: bold;
+    }
+    .status-badge {
+        font-size: 0.8rem;
+        padding: 0.25rem 0.5rem;
+        border-radius: 20px;
+    }
+    .status-connected {
+        background-color: #4caf50;
+        color: white;
+    }
+    .status-disconnected {
+        background-color: #ef5350;
+        color: white;
+    }
+    .status-reconnecting {
+        background-color: #ff9800;
+        color: white;
+    }
+    .status-error {
+        background-color: #9c27b0;
+        color: white;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h2>{{ device.name }} - 实时监控</h2>
+                <div>
+                    <button id="start-monitor-btn" class="btn btn-success mr-2">
+                        <i class="fas fa-play"></i> 启动监控
+                    </button>
+                    <button id="stop-monitor-btn" class="btn btn-danger">
+                        <i class="fas fa-stop"></i> 停止监控
+                    </button>
+                    <a href="{{ url_for('device.view', device_id=device.id) }}" class="btn btn-secondary ml-2">
+                        <i class="fas fa-arrow-left"></i> 返回设备详情
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-3">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h4>设备信息</h4>
+                </div>
+                <div class="card-body">
+                    <dl class="device-info">
+                        <dt>设备名称:</dt>
+                        <dd>{{ device.name }}</dd>
+                        <dt>IP地址:</dt>
+                        <dd>{{ device.ip_address }}</dd>
+                        <dt>类型:</dt>
+                        <dd>{{ device.type.name if device.type else '未知' }}</dd>
+                        <dt>位置:</dt>
+                        <dd>{{ device.location or '未知' }}</dd>
+                        <dt>运行时间:</dt>
+                        <dd id="uptime-value">{{ initial_data.uptime or '获取中...' }}</dd>
+                        <dt>连接状态:</dt>
+                        <dd id="connection-status">
+                            <span class="status-badge status-disconnected">未连接</span>
+                        </dd>
+                    </dl>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">
+                    <h4>命令控制台</h4>
+                </div>
+                <div class="card-body">
+                    <div class="form-group">
+                        <label for="command-input">执行命令:</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="command-input" placeholder="输入命令，如 display version">
+                            <div class="input-group-append">
+                                <button class="btn btn-primary" id="execute-command-btn">执行</button>
+                            </div>
+                        </div>
+                        <small class="form-text text-muted">输入设备CLI命令并执行</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="command-output">命令输出:</label>
+                        <div id="command-output">等待执行命令...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-9">
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="card-counter primary">
+                        <i class="fa fa-microchip"></i>
+                        <span class="count-numbers" id="cpu-usage">{{ initial_data.cpu_usage|default(0)|round(1) }}%</span>
+                        <span class="count-name">CPU使用率</span>
+                    </div>
+                </div>
+
+                <div class="col-md-4">
+                    <div class="card-counter success">
+                        <i class="fa fa-memory"></i>
+                        <span class="count-numbers" id="memory-usage">{{ initial_data.memory_usage|default(0)|round(1) }}%</span>
+                        <span class="count-name">内存使用率</span>
+                    </div>
+                </div>
+
+                <div class="col-md-4">
+                    <div class="card-counter info">
+                        <i class="fa fa-network-wired"></i>
+                        <span class="count-numbers" id="bandwidth-usage">{{ initial_data.bandwidth_usage|default(0)|round(1) }}%</span>
+                        <span class="count-name">带宽使用率</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row mt-4">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h4>CPU使用率</h4>
+                        </div>
+                        <div class="card-body">
+                            <div id="cpu-gauge" class="gauge-container"></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h4>内存使用率</h4>
+                        </div>
+                        <div class="card-body">
+                            <div id="memory-gauge" class="gauge-container"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h4>接口状态</h4>
+                </div>
+                <div class="card-body">
+                    <div id="interfaces-container">
+                        <p>正在获取接口数据...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="error-container" class="alert alert-danger mt-3" style="display: none;"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.4/dist/Chart.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gauge.js@1.3.7/dist/gauge.min.js"></script>
+
+<script>
+    // 设备ID
+    const deviceId = {{ device.id }};
+    
+    // 控制变量
+    let isMonitoring = false;
+    let gauges = {};
+    let updateInterval;
+    
+    // 初始数据
+    const initialData = {{ initial_data|tojson }};
+    
+    // 页面加载时初始化
+    $(document).ready(function() {
+        // 初始化仪表盘
+        initGauges();
+        
+        // 设置初始数据
+        updateDisplay(initialData);
+        
+        // 绑定事件处理
+        $('#start-monitor-btn').click(startMonitoring);
+        $('#stop-monitor-btn').click(stopMonitoring);
+        $('#execute-command-btn').click(executeCommand);
+        
+        // 按下回车键执行命令
+        $('#command-input').keypress(function(e) {
+            if (e.which === 13) {
+                executeCommand();
+            }
+        });
+        
+        // 自动启动监控
+        startMonitoring();
+    });
+    
+    // 初始化仪表盘
+    function initGauges() {
+        // CPU仪表盘
+        const cpuGauge = new Gauge(document.getElementById('cpu-gauge'));
+        cpuGauge.maxValue = 100;
+        cpuGauge.setMinValue(0);
+        cpuGauge.animationSpeed = 32;
+        cpuGauge.set(initialData.cpu_usage || 0);
+        
+        // 配置CPU仪表盘
+        cpuGauge.setOptions({
+            angle: 0,
+            lineWidth: 0.44,
+            radiusScale: 0.9,
+            pointer: {
+                length: 0.6,
+                strokeWidth: 0.035,
+                color: '#000000'
+            },
+            limitMax: false,
+            limitMin: false,
+            colorStart: '#6FADCF',
+            colorStop: '#3f51b5',
+            strokeColor: '#E0E0E0',
+            generateGradient: true,
+            highDpiSupport: true,
+            percentColors: [
+                [0.0, "#4caf50"],  // 绿色 - 低使用率
+                [0.5, "#ff9800"],  // 橙色 - 中等使用率
+                [0.8, "#f44336"]   // 红色 - 高使用率
+            ],
+        });
+        
+        // 内存仪表盘
+        const memoryGauge = new Gauge(document.getElementById('memory-gauge'));
+        memoryGauge.maxValue = 100;
+        memoryGauge.setMinValue(0);
+        memoryGauge.animationSpeed = 32;
+        memoryGauge.set(initialData.memory_usage || 0);
+        
+        // 配置内存仪表盘
+        memoryGauge.setOptions({
+            angle: 0,
+            lineWidth: 0.44,
+            radiusScale: 0.9,
+            pointer: {
+                length: 0.6,
+                strokeWidth: 0.035,
+                color: '#000000'
+            },
+            limitMax: false,
+            limitMin: false,
+            colorStart: '#6FADCF',
+            colorStop: '#4caf50',
+            strokeColor: '#E0E0E0',
+            generateGradient: true,
+            highDpiSupport: true,
+            percentColors: [
+                [0.0, "#4caf50"],  // 绿色 - 低使用率
+                [0.5, "#ff9800"],  // 橙色 - 中等使用率
+                [0.8, "#f44336"]   // 红色 - 高使用率
+            ],
+        });
+        
+        // 保存仪表盘引用
+        gauges = {
+            cpu: cpuGauge,
+            memory: memoryGauge
+        };
+    }
+    
+    // 启动监控
+    function startMonitoring() {
+        if (isMonitoring) return;
+        
+        // 发送启动请求
+        $.ajax({
+            url: "{{ url_for('enhanced_monitor.start_monitoring', device_id=0) }}".replace('0', deviceId),
+            type: 'POST',
+            dataType: 'json',
+            success: function(response) {
+                if (response.status === 'success') {
+                    isMonitoring = true;
+                    $('#start-monitor-btn').prop('disabled', true);
+                    $('#stop-monitor-btn').prop('disabled', false);
+                    
+                    // 开始定时更新
+                    updateInterval = setInterval(fetchRealtimeData, 5000);
+                    
+                    // 立即获取一次数据
+                    fetchRealtimeData();
+                    
+                    showMessage('success', '已启动设备监控');
+                } else {
+                    showMessage('danger', '启动监控失败: ' + response.message);
+                }
+            },
+            error: function(xhr, status, error) {
+                showMessage('danger', '启动监控请求失败: ' + error);
+            }
+        });
+    }
+    
+    // 停止监控
+    function stopMonitoring() {
+        if (!isMonitoring) return;
+        
+        // 发送停止请求
+        $.ajax({
+            url: "{{ url_for('enhanced_monitor.stop_monitoring', device_id=0) }}".replace('0', deviceId),
+            type: 'POST',
+            dataType: 'json',
+            success: function(response) {
+                if (response.status === 'success') {
+                    isMonitoring = false;
+                    $('#start-monitor-btn').prop('disabled', false);
+                    $('#stop-monitor-btn').prop('disabled', true);
+                    
+                    // 停止定时更新
+                    clearInterval(updateInterval);
+                    
+                    showMessage('success', '已停止设备监控');
+                } else {
+                    showMessage('danger', '停止监控失败: ' + response.message);
+                }
+            },
+            error: function(xhr, status, error) {
+                showMessage('danger', '停止监控请求失败: ' + error);
+            }
+        });
+    }
+    
+    // 获取实时数据
+    function fetchRealtimeData() {
+        if (!isMonitoring) return;
+        
+        $.ajax({
+            url: "{{ url_for('enhanced_monitor.get_realtime_data', device_id=0) }}".replace('0', deviceId),
+            type: 'GET',
+            dataType: 'json',
+            success: function(response) {
+                if (response.status === 'success' && response.data) {
+                    // 更新显示
+                    updateDisplay(response.data);
+                } else {
+                    showMessage('danger', '获取数据失败: ' + (response.message || '未知错误'));
+                }
+            },
+            error: function(xhr, status, error) {
+                showMessage('danger', '获取数据错误: ' + error);
+            }
+        });
+    }
+    
+    // 执行命令
+    function executeCommand() {
+        const command = $('#command-input').val().trim();
+        if (!command) {
+            showMessage('warning', '请输入要执行的命令');
+            return;
+        }
+        
+        // 更新输出区域
+        $('#command-output').text('执行命令中，请稍候...');
+        
+        // 发送命令请求
+        $.ajax({
+            url: "{{ url_for('enhanced_monitor.execute_command', device_id=0) }}".replace('0', deviceId),
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ command: command }),
+            dataType: 'json',
+            success: function(response) {
+                if (response.status === 'success') {
+                    $('#command-output').text(response.output || '命令执行成功，无输出');
+                } else {
+                    $('#command-output').text('执行失败: ' + response.message);
+                    showMessage('danger', '命令执行失败: ' + response.message);
+                }
+            },
+            error: function(xhr, status, error) {
+                $('#command-output').text('请求错误: ' + error);
+                showMessage('danger', '命令执行请求失败: ' + error);
+            }
+        });
+    }
+    
+    // 更新显示
+    function updateDisplay(data) {
+        // 更新基本指标
+        $('#cpu-usage').text(data.cpu_usage.toFixed(1) + '%');
+        $('#memory-usage').text(data.memory_usage.toFixed(1) + '%');
+        $('#bandwidth-usage').text(data.bandwidth_usage.toFixed(1) + '%');
+        $('#uptime-value').text(data.uptime || '未知');
+        
+        // 更新仪表盘
+        gauges.cpu.set(data.cpu_usage);
+        gauges.memory.set(data.memory_usage);
+        
+        // 更新连接状态
+        updateConnectionStatus(data.connection_status);
+        
+        // 更新接口数据
+        updateInterfaces(data.interfaces);
+    }
+    
+    // 更新连接状态
+    function updateConnectionStatus(status) {
+        if (!status) return;
+        
+        const statusElem = $('#connection-status');
+        let badgeClass = 'status-disconnected';
+        let statusText = '未连接';
+        
+        if (status.status === 'connected') {
+            badgeClass = 'status-connected';
+            statusText = '已连接';
+        } else if (status.status === 'reconnecting') {
+            badgeClass = 'status-reconnecting';
+            statusText = '重连中';
+        } else if (status.status === 'error' || status.status === 'timeout' || status.status === 'auth_failed') {
+            badgeClass = 'status-error';
+            statusText = status.status === 'timeout' ? '连接超时' : 
+                        (status.status === 'auth_failed' ? '认证失败' : '连接错误');
+        }
+        
+        statusElem.html(`<span class="status-badge ${badgeClass}">${statusText}</span>`);
+        
+        // 如果有错误信息，显示
+        if (status.last_error) {
+            statusElem.append(`<div class="mt-1 small text-danger">${status.last_error}</div>`);
+        }
+    }
+    
+    // 更新接口数据
+    function updateInterfaces(interfaces) {
+        if (!interfaces || Object.keys(interfaces).length === 0) {
+            $('#interfaces-container').html('<p>暂无接口数据</p>');
+            return;
+        }
+        
+        let html = '<div class="row">';
+        
+        // 遍历接口数据
+        for (const [name, data] of Object.entries(interfaces)) {
+            const statusClass = data.status === 'up' ? 'interface-status-up' : 'interface-status-down';
+            const statusIcon = data.status === 'up' ? 'fa-check-circle' : 'fa-times-circle';
+            
+            html += `
+                <div class="col-md-6 mb-3">
+                    <div class="card interface-card">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                <i class="fas fa-network-wired mr-2"></i>${name}
+                                <span class="float-right ${statusClass}"><i class="fas ${statusIcon}"></i> ${data.status.toUpperCase()}</span>
+                            </h5>
+                            <div class="row">
+                                <div class="col-6">
+                                    <p class="mb-1"><strong>输入速率:</strong></p>
+                                    <p>${data.input_rate_formatted || '0 bps'}</p>
+                                </div>
+                                <div class="col-6">
+                                    <p class="mb-1"><strong>输出速率:</strong></p>
+                                    <p>${data.output_rate_formatted || '0 bps'}</p>
+                                </div>
+                            </div>
+                            ${data.mac_address ? `<p class="mb-0 mt-2"><small>MAC地址: ${data.mac_address}</small></p>` : ''}
+                            ${data.input_errors || data.output_errors ? 
+                                `<p class="mb-0 mt-1 text-danger"><small>错误: 输入(${data.input_errors || 0}) 输出(${data.output_errors || 0})</small></p>` : ''}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        html += '</div>';
+        $('#interfaces-container').html(html);
+    }
+    
+    // 显示消息
+    function showMessage(type, message) {
+        $('#error-container').removeClass('alert-success alert-danger alert-warning')
+            .addClass('alert-' + type)
+            .html(message)
+            .show();
+            
+        setTimeout(function() {
+            $('#error-container').fadeOut();
+        }, 5000);
+    }
+</script>
+{% endblock %} 

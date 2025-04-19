@@ -1,249 +1,102 @@
 {% extends 'base.html' %}
 
-{% block title %}仪表盘 - 校园安全管理系统{% endblock %}
+{% block title %}{{ title }}{% endblock %}
 
 {% block content %}
-<div class="container-fluid fade-in">
-  <div class="d-flex justify-content-between align-items-center mb-4">
-    <h2 class="h4 mb-0">系统概览</h2>
-    <div>
-      <button class="btn btn-sm btn-light me-2" data-bs-toggle="tooltip" title="刷新数据">
-        <i class="fas fa-sync-alt"></i>
-      </button>
-      <div class="dropdown d-inline-block">
-        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="timeRangeDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-          本周
-        </button>
-        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="timeRangeDropdown">
-          <li><a class="dropdown-item" href="#">今天</a></li>
-          <li><a class="dropdown-item active" href="#">本周</a></li>
-          <li><a class="dropdown-item" href="#">本月</a></li>
-          <li><a class="dropdown-item" href="#">本季度</a></li>
-        </ul>
-      </div>
+<div class="container my-4">
+    <h1 class="mb-4">系统仪表板</h1>
+    
+    <!-- 统计卡片 -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card h-100 bg-primary text-white">
+                <div class="card-body text-center">
+                    <h5 class="card-title">设备总数</h5>
+                    <h1 class="display-4">{{ device_count }}</h1>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card h-100 bg-success text-white">
+                <div class="card-body text-center">
+                    <h5 class="card-title">正常设备</h5>
+                    <h1 class="display-4">{{ normal_count }}</h1>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card h-100 bg-warning text-dark">
+                <div class="card-body text-center">
+                    <h5 class="card-title">维修中</h5>
+                    <h1 class="display-4">{{ maintenance_count }}</h1>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card h-100 bg-danger text-white">
+                <div class="card-body text-center">
+                    <h5 class="card-title">闲置/报废</h5>
+                    <h1 class="display-4">{{ inactive_count + retired_count }}</h1>
+                </div>
+            </div>
+        </div>
     </div>
-  </div>
-  
-  <div class="row">
-    <div class="col-md-3 col-sm-6 mb-4">
-      <div class="card stat-card bg-white">
-        <div class="stat-icon bg-primary-subtle text-primary">
-          <i class="fas fa-server"></i>
-        </div>
-        <div class="stat-details">
-          <h3>120</h3>
-          <p>设备总数</p>
-        </div>
-      </div>
-    </div>
-    <div class="col-md-3 col-sm-6 mb-4">
-      <div class="card stat-card bg-white">
-        <div class="stat-icon bg-success-subtle text-success">
-          <i class="fas fa-check-circle"></i>
-        </div>
-        <div class="stat-details">
-          <h3>112</h3>
-          <p>正常运行</p>
-        </div>
-      </div>
-    </div>
-    <div class="col-md-3 col-sm-6 mb-4">
-      <div class="card stat-card bg-white">
-        <div class="stat-icon bg-warning-subtle text-warning">
-          <i class="fas fa-tools"></i>
-        </div>
-        <div class="stat-details">
-          <h3>5</h3>
-          <p>待维护</p>
-        </div>
-      </div>
-    </div>
-    <div class="col-md-3 col-sm-6 mb-4">
-      <div class="card stat-card bg-white">
-        <div class="stat-icon bg-danger-subtle text-danger">
-          <i class="fas fa-exclamation-triangle"></i>
-        </div>
-        <div class="stat-details">
-          <h3>3</h3>
-          <p>故障设备</p>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div class="row">
-    <div class="col-lg-8 mb-4">
-      <div class="card">
-        <div class="card-header d-flex justify-content-between align-items-center">
-          <h5 class="mb-0">设备状态趋势</h5>
-          <div class="dropdown">
-            <button class="btn btn-sm btn-link text-muted" type="button" id="chartDropdown" data-bs-toggle="dropdown" aria-expanded="false" aria-label="图表选项">
-              <i class="fas fa-ellipsis-v"></i>
-            </button>
-            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="chartDropdown">
-              <li><a class="dropdown-item" href="#"><i class="fas fa-download me-2"></i>导出数据</a></li>
-              <li><a class="dropdown-item" href="#"><i class="fas fa-redo me-2"></i>刷新图表</a></li>
-              <li><a class="dropdown-item" href="#"><i class="fas fa-cog me-2"></i>图表设置</a></li>
-            </ul>
-          </div>
-        </div>
-        <div class="card-body">
-          <div style="height: 250px; background-color: #f8f9fa; border-radius: 0.375rem;" class="d-flex align-items-center justify-content-center">
-            <p class="text-muted mb-0">此处将显示设备状态趋势图</p>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="col-lg-4 mb-4">
-      <div class="card h-100">
-        <div class="card-header d-flex justify-content-between align-items-center">
-          <h5 class="mb-0">系统通知</h5>
-          <a href="#" class="btn btn-sm btn-link text-primary">查看全部</a>
-        </div>
-        <div class="card-body p-0">
-          <div class="list-group list-group-flush">
-            <a href="#" class="list-group-item list-group-item-action border-0 py-3 px-4">
-              <div class="d-flex w-100 justify-content-between">
-                <h6 class="mb-1 text-primary">系统维护通知</h6>
-                <small class="text-muted">3分钟前</small>
-              </div>
-              <p class="mb-1 text-muted small">计划于今晚22:00-23:00进行系统维护。</p>
-            </a>
-            <a href="#" class="list-group-item list-group-item-action border-0 py-3 px-4">
-              <div class="d-flex w-100 justify-content-between">
-                <h6 class="mb-1 text-warning">设备巡检提醒</h6>
-                <small class="text-muted">2小时前</small>
-              </div>
-              <p class="mb-1 text-muted small">A区摄像头需要进行每月例行检查。</p>
-            </a>
-            <a href="#" class="list-group-item list-group-item-action border-0 py-3 px-4">
-              <div class="d-flex w-100 justify-content-between">
-                <h6 class="mb-1 text-success">软件更新完成</h6>
-                <small class="text-muted">昨天</small>
-              </div>
-              <p class="mb-1 text-muted small">系统已更新至最新版本v2.3.1。</p>
-            </a>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-  
-  <div class="row">
-    <div class="col-12 mb-4">
-      <div class="card">
-        <div class="card-header d-flex justify-content-between align-items-center">
-          <h5 class="mb-0">最近故障记录</h5>
-          <button class="btn btn-sm btn-primary">
-            <i class="fas fa-plus me-1"></i>添加记录
-          </button>
-        </div>
-        <div class="card-body p-0">
-          <div class="table-responsive">
-            <table class="table table-hover mb-0">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>设备名称</th>
-                <th>故障类型</th>
-                <th>报告时间</th>
-                  <th>优先级</th>
-                <th>状态</th>
-                  <th>操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>F001</td>
-                  <td>
-                    <div class="d-flex align-items-center">
-                      <i class="fas fa-video text-primary me-2"></i>
-                      <span>摄像头A区-01</span>
+    
+    <!-- 最近添加的设备 -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">最近添加的设备</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>设备名称</th>
+                                    <th>IP地址</th>
+                                    <th>位置</th>
+                                    <th>状态</th>
+                                    <th>添加时间</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for device in recent_devices %}
+                                <tr>
+                                    <td>{{ device.name }}</td>
+                                    <td>{{ device.ip_address }}</td>
+                                    <td>{{ device.location }}</td>
+                                    <td>
+                                        {% if device.status == '正常' %}
+                                        <span class="badge bg-success">{{ device.status }}</span>
+                                        {% elif device.status == '维修中' %}
+                                        <span class="badge bg-warning">{{ device.status }}</span>
+                                        {% else %}
+                                        <span class="badge bg-danger">{{ device.status }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ device.created_at.strftime('%Y-%m-%d %H:%M') if device.created_at else '未知' }}</td>
+                                    <td>
+                                        <a href="{{ url_for('device.view', device_id=device.id) }}" class="btn btn-sm btn-info">查看</a>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="6" class="text-center">暂无设备数据</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
                     </div>
-                  </td>
-                <td>视频信号丢失</td>
-                <td>2023-04-15 08:30</td>
-                  <td><span class="badge bg-danger">高</span></td>
-                <td><span class="badge bg-danger">未处理</span></td>
-                  <td>
-                    <div class="btn-group btn-group-sm">
-                      <button type="button" class="btn btn-outline-secondary" data-bs-toggle="tooltip" title="查看详情">
-                        <i class="fas fa-eye"></i>
-                      </button>
-                      <button type="button" class="btn btn-outline-secondary" data-bs-toggle="tooltip" title="编辑">
-                        <i class="fas fa-edit"></i>
-                      </button>
-                    </div>
-                  </td>
-              </tr>
-              <tr>
-                <td>F002</td>
-                  <td>
-                    <div class="d-flex align-items-center">
-                      <i class="fas fa-door-open text-success me-2"></i>
-                      <span>门禁系统B区-03</span>
-                    </div>
-                  </td>
-                <td>读卡器故障</td>
-                <td>2023-04-16 13:45</td>
-                  <td><span class="badge bg-warning">中</span></td>
-                <td><span class="badge bg-warning">处理中</span></td>
-                  <td>
-                    <div class="btn-group btn-group-sm">
-                      <button type="button" class="btn btn-outline-secondary" data-bs-toggle="tooltip" title="查看详情">
-                        <i class="fas fa-eye"></i>
-                      </button>
-                      <button type="button" class="btn btn-outline-secondary" data-bs-toggle="tooltip" title="编辑">
-                        <i class="fas fa-edit"></i>
-                      </button>
-                    </div>
-                  </td>
-              </tr>
-              <tr>
-                <td>F003</td>
-                  <td>
-                    <div class="d-flex align-items-center">
-                      <i class="fas fa-smoking text-warning me-2"></i>
-                      <span>烟感器C区-12</span>
-                    </div>
-                  </td>
-                <td>电池电量低</td>
-                <td>2023-04-17 09:15</td>
-                  <td><span class="badge bg-info">低</span></td>
-                <td><span class="badge bg-success">已修复</span></td>
-                  <td>
-                    <div class="btn-group btn-group-sm">
-                      <button type="button" class="btn btn-outline-secondary" data-bs-toggle="tooltip" title="查看详情">
-                        <i class="fas fa-eye"></i>
-                      </button>
-                      <button type="button" class="btn btn-outline-secondary" data-bs-toggle="tooltip" title="编辑">
-                        <i class="fas fa-edit"></i>
-                      </button>
-                    </div>
-                  </td>
-              </tr>
-            </tbody>
-          </table>
+                </div>
+                <div class="card-footer">
+                    <a href="{{ url_for('device.index') }}" class="btn btn-primary">查看所有设备</a>
+                </div>
+            </div>
         </div>
-      </div>
-        <div class="card-footer">
-          <nav>
-            <ul class="pagination pagination-sm justify-content-end mb-0">
-              <li class="page-item disabled">
-                <a class="page-link" href="#" tabindex="-1" aria-disabled="true">上一页</a>
-            </li>
-              <li class="page-item active"><a class="page-link" href="#">1</a></li>
-              <li class="page-item"><a class="page-link" href="#">2</a></li>
-              <li class="page-item"><a class="page-link" href="#">3</a></li>
-              <li class="page-item">
-                <a class="page-link" href="#">下一页</a>
-            </li>
-          </ul>
-          </nav>
-        </div>
-      </div>
     </div>
-  </div>
 </div>
 {% endblock %}
 

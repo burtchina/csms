@@ -1,0 +1,192 @@
+{% extends 'base.html' %}
+
+{% block title %}性能监控仪表板{% endblock %}
+
+{% block extra_css %}
+<style>
+    .device-card {
+        transition: all 0.3s ease;
+        border-radius: 10px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        margin-bottom: 20px;
+        overflow: hidden;
+    }
+    .device-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 15px rgba(0, 0, 0, 0.2);
+    }
+    .card-header {
+        font-weight: bold;
+    }
+    .card-status {
+        display: inline-block;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        margin-right: 5px;
+    }
+    .status-normal {
+        background-color: #28a745;
+    }
+    .status-warning {
+        background-color: #ffc107;
+    }
+    .status-critical {
+        background-color: #dc3545;
+    }
+    .status-unknown {
+        background-color: #6c757d;
+    }
+    .metrics-container {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 15px;
+    }
+    .metric-item {
+        text-align: center;
+        padding: 10px;
+        border-radius: 5px;
+        background-color: #f8f9fa;
+        flex: 1;
+        margin: 0 5px;
+    }
+    .metric-value {
+        font-size: 1.5rem;
+        font-weight: bold;
+    }
+    .metric-label {
+        font-size: 0.8rem;
+        color: #6c757d;
+    }
+    .last-updated {
+        font-size: 0.8rem;
+        color: #6c757d;
+        margin-top: 10px;
+        text-align: right;
+    }
+    .device-type {
+        font-size: 0.9rem;
+        color: #6c757d;
+    }
+    .refresh-btn {
+        margin-bottom: 20px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="fas fa-tachometer-alt"></i> 性能监控仪表板</h2>
+        <button id="refresh-dashboard" class="btn btn-primary">
+            <i class="fas fa-sync-alt"></i> 刷新数据
+        </button>
+    </div>
+    <p class="text-muted mb-4">所有设备的实时性能状态概览</p>
+
+    <div class="row" id="devices-container">
+        {% if devices %}
+            {% for device in devices %}
+            <div class="col-md-4">
+                <div class="card device-card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <div>
+                            {% if device.cpu_usage is defined and device.cpu_usage is not none %}
+                                {% if device.cpu_usage > 80 or device.memory_usage > 80 %}
+                                    <span class="card-status status-critical"></span>
+                                {% elif device.cpu_usage > 60 or device.memory_usage > 60 %}
+                                    <span class="card-status status-warning"></span>
+                                {% else %}
+                                    <span class="card-status status-normal"></span>
+                                {% endif %}
+                            {% else %}
+                                <span class="card-status status-unknown"></span>
+                            {% endif %}
+                            {{ device.name }}
+                        </div>
+                        <div>
+                            <a href="/performance/realtime/{{ device.id }}" class="btn btn-sm btn-outline-primary">
+                                <i class="fas fa-chart-line"></i>
+                            </a>
+                            <a href="/device/view/{{ device.id }}" class="btn btn-sm btn-outline-info ml-1">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="device-info">
+                            <div class="device-type">
+                                <i class="fas fa-server"></i> <span style="display: inline-block !important; visibility: visible !important;">{{ device.type_name or '交换机' }}</span>
+                            </div>
+                            <div class="device-ip">
+                                <i class="fas fa-network-wired"></i> {{ device.ip_address or '未知IP' }}
+                            </div>
+                        </div>
+                        
+                        {% if device.cpu_usage is defined and device.cpu_usage is not none %}
+                            <div class="metrics-container">
+                                <div class="metric-item">
+                                    <div class="metric-value" 
+                                        {% if device.cpu_usage > 80 %}
+                                            style="color: #dc3545;"
+                                        {% elif device.cpu_usage > 60 %}
+                                            style="color: #ffc107;"
+                                        {% else %}
+                                            style="color: #28a745;"
+                                        {% endif %}
+                                    >
+                                        {{ "%.1f"|format(device.cpu_usage) }}%
+                                    </div>
+                                    <div class="metric-label">CPU</div>
+                                </div>
+                                <div class="metric-item">
+                                    <div class="metric-value"
+                                        {% if device.memory_usage > 80 %}
+                                            style="color: #dc3545;"
+                                        {% elif device.memory_usage > 60 %}
+                                            style="color: #ffc107;"
+                                        {% else %}
+                                            style="color: #28a745;"
+                                        {% endif %}
+                                    >
+                                        {{ "%.1f"|format(device.memory_usage) }}%
+                                    </div>
+                                    <div class="metric-label">内存</div>
+                                </div>
+                            </div>
+                            <div class="last-updated">
+                                最后更新: {{ device.last_updated|replace('T', ' ')|replace('Z', '') }}
+                            </div>
+                        {% else %}
+                            <div class="alert alert-secondary mt-3" role="alert">
+                                {{ device.status or '无性能数据' }}
+                                <a href="/performance/collect/{{ device.id }}" class="btn btn-sm btn-outline-primary float-right">
+                                    采集
+                                </a>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="col-12">
+                <div class="alert alert-info" role="alert">
+                    <i class="fas fa-info-circle"></i> 暂无设备数据，请添加设备或刷新页面。
+                </div>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // 刷新按钮事件
+        document.getElementById('refresh-dashboard').addEventListener('click', function() {
+            location.reload();
+        });
+    });
+</script>
+{% endblock %} 

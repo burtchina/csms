@@ -1,0 +1,306 @@
+{% extends 'base.html' %}
+
+{% block title %}设备维护记录{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">设备维护记录</h5>
+            <button class="btn btn-sm btn-light" data-bs-toggle="modal" data-bs-target="#addMaintenanceModal">
+                <i class="fas fa-plus"></i> 新增记录
+            </button>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover" id="maintenanceTable">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>设备名称</th>
+                            <th>维护类型</th>
+                            <th>维护日期</th>
+                            <th>维护人员</th>
+                            <th>维护内容</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- 这里将通过JavaScript动态加载数据 -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 新增维护记录模态框 -->
+<div class="modal fade" id="addMaintenanceModal" tabindex="-1" aria-labelledby="addMaintenanceModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="addMaintenanceModalLabel">新增维护记录</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="maintenanceForm">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="device" class="form-label">设备名称</label>
+                            <select class="form-select" id="device" required>
+                                <option value="" selected disabled>请选择设备</option>
+                                <!-- 通过JavaScript动态加载设备列表 -->
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="maintenanceType" class="form-label">维护类型</label>
+                            <select class="form-select" id="maintenanceType" required>
+                                <option value="定期保养">定期保养</option>
+                                <option value="故障维修">故障维修</option>
+                                <option value="升级更新">升级更新</option>
+                                <option value="其他">其他</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="maintenanceDate" class="form-label">维护日期</label>
+                            <input type="date" class="form-control" id="maintenanceDate" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="maintenancePerson" class="form-label">维护人员</label>
+                            <input type="text" class="form-control" id="maintenancePerson" required>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="maintenanceContent" class="form-label">维护内容</label>
+                        <textarea class="form-control" id="maintenanceContent" rows="3" required></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" id="saveMaintenanceBtn">保存</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 详情模态框 -->
+<div class="modal fade" id="maintenanceDetailModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title">维护记录详情</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="maintenanceDetailContent">
+                <!-- 通过JavaScript填充内容 -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // 在页面加载完成后加载维护记录数据
+        loadMaintenanceRecords();
+        
+        // 加载设备列表
+        loadDevices();
+        
+        // 绑定保存按钮事件
+        document.getElementById('saveMaintenanceBtn').addEventListener('click', saveMaintenanceRecord);
+    });
+    
+    function loadMaintenanceRecords() {
+        // 这里应该发送AJAX请求获取维护记录数据
+        // 示例代码，实际实现时替换为真实的API调用
+        fetch('/api/maintenance')
+            .then(response => response.json())
+            .then(data => {
+                renderMaintenanceTable(data);
+            })
+            .catch(error => {
+                console.error('加载维护记录失败:', error);
+            });
+    }
+    
+    function loadDevices() {
+        // 加载设备列表
+        fetch('/api/devices')
+            .then(response => response.json())
+            .then(data => {
+                const deviceSelect = document.getElementById('device');
+                data.forEach(device => {
+                    const option = document.createElement('option');
+                    option.value = device.id;
+                    option.textContent = device.name;
+                    deviceSelect.appendChild(option);
+                });
+            })
+            .catch(error => {
+                console.error('加载设备列表失败:', error);
+            });
+    }
+    
+    function renderMaintenanceTable(data) {
+        const tbody = document.querySelector('#maintenanceTable tbody');
+        tbody.innerHTML = '';
+        
+        if (data.length === 0) {
+            const tr = document.createElement('tr');
+            tr.innerHTML = '<td colspan="7" class="text-center">暂无维护记录</td>';
+            tbody.appendChild(tr);
+            return;
+        }
+        
+        data.forEach(record => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${record.id}</td>
+                <td>${record.device_name}</td>
+                <td>${record.maintenance_type}</td>
+                <td>${record.maintenance_date}</td>
+                <td>${record.maintenance_person}</td>
+                <td>${record.maintenance_content.substring(0, 30)}${record.maintenance_content.length > 30 ? '...' : ''}</td>
+                <td>
+                    <button class="btn btn-sm btn-info view-btn" data-id="${record.id}">查看</button>
+                    <button class="btn btn-sm btn-danger delete-btn" data-id="${record.id}">删除</button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+        
+        // 绑定查看按钮事件
+        document.querySelectorAll('.view-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const id = this.getAttribute('data-id');
+                showMaintenanceDetail(id);
+            });
+        });
+        
+        // 绑定删除按钮事件
+        document.querySelectorAll('.delete-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const id = this.getAttribute('data-id');
+                deleteMaintenanceRecord(id);
+            });
+        });
+    }
+    
+    function saveMaintenanceRecord() {
+        // 获取表单数据
+        const deviceId = document.getElementById('device').value;
+        const maintenanceType = document.getElementById('maintenanceType').value;
+        const maintenanceDate = document.getElementById('maintenanceDate').value;
+        const maintenancePerson = document.getElementById('maintenancePerson').value;
+        const maintenanceContent = document.getElementById('maintenanceContent').value;
+        
+        // 验证表单
+        if (!deviceId || !maintenanceType || !maintenanceDate || !maintenancePerson || !maintenanceContent) {
+            alert('请填写所有必填字段');
+            return;
+        }
+        
+        // 构建请求数据
+        const data = {
+            device_id: deviceId,
+            maintenance_type: maintenanceType,
+            maintenance_date: maintenanceDate,
+            maintenance_person: maintenancePerson,
+            maintenance_content: maintenanceContent
+        };
+        
+        // 发送请求
+        fetch('/api/maintenance', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                // 关闭模态框
+                const modal = bootstrap.Modal.getInstance(document.getElementById('addMaintenanceModal'));
+                modal.hide();
+                
+                // 重新加载数据
+                loadMaintenanceRecords();
+                
+                // 重置表单
+                document.getElementById('maintenanceForm').reset();
+            } else {
+                alert('保存失败: ' + result.message);
+            }
+        })
+        .catch(error => {
+            console.error('保存维护记录失败:', error);
+            alert('保存失败，请稍后重试');
+        });
+    }
+    
+    function showMaintenanceDetail(id) {
+        // 加载维护记录详情
+        fetch(`/api/maintenance/${id}`)
+            .then(response => response.json())
+            .then(data => {
+                const detailContent = document.getElementById('maintenanceDetailContent');
+                detailContent.innerHTML = `
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <p><strong>设备名称:</strong> ${data.device_name}</p>
+                            <p><strong>维护类型:</strong> ${data.maintenance_type}</p>
+                            <p><strong>维护日期:</strong> ${data.maintenance_date}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>维护人员:</strong> ${data.maintenance_person}</p>
+                            <p><strong>创建时间:</strong> ${data.created_at}</p>
+                            <p><strong>更新时间:</strong> ${data.updated_at}</p>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <h6>维护内容:</h6>
+                        <div class="p-3 bg-light rounded">${data.maintenance_content}</div>
+                    </div>
+                `;
+                
+                // 显示模态框
+                const modal = new bootstrap.Modal(document.getElementById('maintenanceDetailModal'));
+                modal.show();
+            })
+            .catch(error => {
+                console.error('加载维护记录详情失败:', error);
+                alert('加载详情失败，请稍后重试');
+            });
+    }
+    
+    function deleteMaintenanceRecord(id) {
+        if (confirm('确定要删除这条维护记录吗？')) {
+            fetch(`/api/maintenance/${id}`, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    // 重新加载数据
+                    loadMaintenanceRecords();
+                } else {
+                    alert('删除失败: ' + result.message);
+                }
+            })
+            .catch(error => {
+                console.error('删除维护记录失败:', error);
+                alert('删除失败，请稍后重试');
+            });
+        }
+    }
+</script>
+{% endblock %} 

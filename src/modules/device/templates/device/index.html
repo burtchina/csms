@@ -93,19 +93,19 @@
                                 <td>{{ device.id }}</td>
                                 <td>{{ device.name }}</td>
                                 <td>{{ device.device_code }}</td>
-                                <td>{{ device.device_type.name if device.device_type else '-' }}</td>
+                                <td>{{ device.type.name if device.type else '-' }}</td>
                                 <td>{{ device.location or '-' }}</td>
                                 <td>
                                     {% if device.status == '正常' %}
-                                    <span class="badge badge-success">{{ device.status }}</span>
+                                    <span class="badge badge-success" style="display: inline-block !important; visibility: visible !important; color: white !important; background-color: #28a745 !important;">正常</span>
                                     {% elif device.status == '维修中' %}
-                                    <span class="badge badge-warning">{{ device.status }}</span>
+                                    <span class="badge badge-warning" style="display: inline-block !important; visibility: visible !important; color: white !important; background-color: #ffc107 !important;">维修中</span>
                                     {% elif device.status == '报废' %}
-                                    <span class="badge badge-danger">{{ device.status }}</span>
+                                    <span class="badge badge-danger" style="display: inline-block !important; visibility: visible !important; color: white !important; background-color: #dc3545 !important;">报废</span>
                                     {% elif device.status == '闲置' %}
-                                    <span class="badge badge-info">{{ device.status }}</span>
+                                    <span class="badge badge-info" style="display: inline-block !important; visibility: visible !important; color: white !important; background-color: #17a2b8 !important;">闲置</span>
                                     {% else %}
-                                    <span class="badge badge-secondary">{{ device.status }}</span>
+                                    <span class="badge badge-secondary" style="display: inline-block !important; visibility: visible !important; color: white !important; background-color: #6c757d !important;">{{ device.status or '未知' }}</span>
                                     {% endif %}
                                 </td>
                                 <td>{{ device.ip_address or '-' }}</td>
@@ -230,5 +230,15 @@
         document.getElementById('deleteForm').action = "{{ url_for('device.delete', device_id=0) }}".replace('0', deviceId);
         $('#deleteModal').modal('show');
     }
+    
+    // 添加调试代码，检查设备状态
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('检查设备状态');
+        const statusCells = document.querySelectorAll('td:nth-child(6)');
+        statusCells.forEach((cell, index) => {
+            console.log(`设备 ${index + 1} 状态HTML: ${cell.innerHTML}`);
+            console.log(`设备 ${index + 1} 状态文本: ${cell.textContent}`);
+        });
+    });
 </script>
 {% endblock %} 

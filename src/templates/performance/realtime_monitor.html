@@ -1,0 +1,279 @@
+{% extends 'base.html' %}
+{% block title %}实时监控 - {{ device.name }}{% endblock %}
+
+{% block head %}
+{% if request.args.get('refresh') %}
+<meta http-equiv="refresh" content="{{ request.args.get('refresh') }}">
+{% endif %}
+
+<style>
+    .metric-card {
+        transition: all 0.3s ease;
+        border-radius: 10px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        margin-bottom: 20px;
+        padding: 15px;
+    }
+    .metric-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 15px rgba(0, 0, 0, 0.2);
+    }
+    .metric-value {
+        font-size: 2.5rem;
+        font-weight: bold;
+    }
+    .metric-label {
+        font-size: 1.1rem;
+        color: #6c757d;
+        font-weight: 500;
+    }
+    .refresh-active {
+        color: #28a745;
+        font-weight: bold;
+    }
+    .border-left-success {
+        border-left: 5px solid #28a745;
+    }
+    .border-left-primary {
+        border-left: 5px solid #0d6efd;
+    }
+    .border-left-warning {
+        border-left: 5px solid #ffc107;
+    }
+    .border-left-info {
+        border-left: 5px solid #17a2b8;
+    }
+    .card-metric {
+        background-color: #fff;
+        border-radius: 10px;
+        box-shadow: 0 0.15rem 1.75rem 0 rgba(34, 39, 46, 0.15);
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    .text-danger {
+        color: #dc3545 !important;
+    }
+    .text-warning {
+        color: #fd7e14 !important;
+    }
+    .text-success {
+        color: #28a745 !important;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4">
+    <h1 class="mt-4">实时性能监控</h1>
+    <ol class="breadcrumb mb-4">
+        <li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}">仪表盘</a></li>
+        <li class="breadcrumb-item"><a href="{{ url_for('performance.index') }}">性能监控</a></li>
+        <li class="breadcrumb-item active">实时监控</li>
+    </ol>
+    
+    <!-- 设备信息和刷新控制 -->
+    <div class="row mb-3">
+        <div class="col-xl-8">
+            <!-- 设备信息 -->
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <div>
+                        <i class="fas fa-server me-1"></i>
+                        设备信息
+                    </div>
+                    <div>
+                        <a href="{{ url_for('performance.index') }}" class="btn btn-outline-secondary btn-sm">
+                            <i class="fas fa-arrow-left me-1"></i>返回
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <p class="mb-0"><strong>设备名称:</strong></p>
+                            <p>{{ device.name }}</p>
+                        </div>
+                        <div class="col-md-3">
+                            <p class="mb-0"><strong>IP地址:</strong></p>
+                            <p>{{ device.ip_address }}</p>
+                        </div>
+                        <div class="col-md-3">
+                            <p class="mb-0"><strong>设备类型:</strong></p>
+                            <p>{{ device.device_type }}</p>
+                        </div>
+                        <div class="col-md-3">
+                            <p class="mb-0"><strong>状态:</strong></p>
+                            <p><span class="badge bg-success">在线</span></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-4">
+            <!-- 刷新控制 -->
+            <div class="card">
+                <div class="card-header">
+                    <i class="fas fa-sync-alt me-1"></i>
+                    数据刷新控制
+                </div>
+                <div class="card-body">
+                    <p>更新时间: <strong>{{ current_time }}</strong></p>
+                    <p>
+                        <a href="{{ url_for('performance.realtime_device_monitor', device_id=device.id) }}" class="btn btn-sm {% if not request.args.get('refresh') %}btn-primary{% else %}btn-outline-primary{% endif %}">手动刷新</a>
+                        <a href="{{ url_for('performance.realtime_device_monitor', device_id=device.id) }}?refresh=5" class="btn btn-sm {% if request.args.get('refresh') == '5' %}btn-success{% else %}btn-outline-primary{% endif %}">5秒</a>
+                        <a href="{{ url_for('performance.realtime_device_monitor', device_id=device.id) }}?refresh=10" class="btn btn-sm {% if request.args.get('refresh') == '10' %}btn-success{% else %}btn-outline-primary{% endif %}">10秒</a>
+                        <a href="{{ url_for('performance.realtime_device_monitor', device_id=device.id) }}?refresh=30" class="btn btn-sm {% if request.args.get('refresh') == '30' %}btn-success{% else %}btn-outline-primary{% endif %}">30秒</a>
+                    </p>
+                    {% if request.args.get('refresh') %}
+                    <div class="alert alert-info mb-0 py-2">
+                        <i class="fas fa-info-circle me-1"></i>
+                        页面每 {{ request.args.get('refresh') }} 秒自动刷新
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    {% if performance_data.is_simulated %}
+    <div class="alert alert-warning">
+        <i class="fas fa-exclamation-triangle me-2"></i>
+        注意：当前显示的是模拟数据，不是实际设备的性能指标。
+    </div>
+    {% endif %}
+    
+    <!-- 实时数据显示卡片 -->
+    <div class="row">
+        <div class="col-xl-3 col-md-6">
+            <div class="card card-metric border-left-success">
+                <div class="row align-items-center g-0">
+                    <div class="col-8">
+                        <div class="metric-label">CPU使用率</div>
+                        {% set cpu = performance_data.cpu_usage|float %}
+                        <div class="metric-value 
+                            {% if cpu >= 80 %}text-danger
+                            {% elif cpu >= 60 %}text-warning
+                            {% else %}text-success{% endif %}">
+                            {{ "%.1f"|format(cpu) }}%
+                        </div>
+                    </div>
+                    <div class="col-4 text-center">
+                        <i class="fas fa-microchip fa-3x" style="color:#6c757d;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card card-metric border-left-primary">
+                <div class="row align-items-center g-0">
+                    <div class="col-8">
+                        <div class="metric-label">内存使用率</div>
+                        {% set mem = performance_data.memory_usage|float %}
+                        <div class="metric-value 
+                            {% if mem >= 80 %}text-danger
+                            {% elif mem >= 60 %}text-warning
+                            {% else %}text-success{% endif %}">
+                            {{ "%.1f"|format(mem) }}%
+                        </div>
+                    </div>
+                    <div class="col-4 text-center">
+                        <i class="fas fa-memory fa-3x" style="color:#6c757d;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card card-metric border-left-warning">
+                <div class="row align-items-center g-0">
+                    <div class="col-8">
+                        <div class="metric-label">带宽使用率</div>
+                        {% set bw = performance_data.bandwidth_usage|float %}
+                        <div class="metric-value 
+                            {% if bw >= 80 %}text-danger
+                            {% elif bw >= 60 %}text-warning
+                            {% else %}text-success{% endif %}">
+                            {{ "%.1f"|format(bw) }}%
+                        </div>
+                    </div>
+                    <div class="col-4 text-center">
+                        <i class="fas fa-network-wired fa-3x" style="color:#6c757d;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card card-metric border-left-info">
+                <div class="row align-items-center g-0">
+                    <div class="col-8">
+                        <div class="metric-label">运行时间</div>
+                        <div class="metric-value" style="font-size:1.5rem;">
+                            {{ performance_data.uptime|default('未知', true) }}
+                        </div>
+                    </div>
+                    <div class="col-4 text-center">
+                        <i class="fas fa-clock fa-3x" style="color:#6c757d;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 历史数据表格 -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="fas fa-history me-1"></i>
+                    最近性能数据记录
+                </div>
+                <div class="card-body">
+                    {% if history_data %}
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>时间</th>
+                                    <th>CPU使用率</th>
+                                    <th>内存使用率</th>
+                                    <th>带宽使用率</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for record in history_data %}
+                                <tr>
+                                    <td>{{ record.timestamp }}</td>
+                                    <td>
+                                        {% set cpu = record.cpu_usage|float %}
+                                        <span class="badge {% if cpu >= 80 %}bg-danger{% elif cpu >= 60 %}bg-warning{% else %}bg-success{% endif %}">
+                                            {{ "%.1f"|format(cpu) }}%
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% set mem = record.memory_usage|float %}
+                                        <span class="badge {% if mem >= 80 %}bg-danger{% elif mem >= 60 %}bg-warning{% else %}bg-success{% endif %}">
+                                            {{ "%.1f"|format(mem) }}%
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% set bw = record.bandwidth_usage|float %}
+                                        <span class="badge {% if bw >= 80 %}bg-danger{% elif bw >= 60 %}bg-warning{% else %}bg-success{% endif %}">
+                                            {{ "%.1f"|format(bw) }}%
+                                        </span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        暂无历史数据记录
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

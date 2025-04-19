@@ -8,103 +8,74 @@
 import os
 import sys
 import warnings
-import subprocess
 import argparse
+import logging
+import traceback
+
+# 配置日志
+logging.basicConfig(level=logging.INFO, 
+                   format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 # 添加项目根目录到Python路径
 base_dir = os.path.dirname(os.path.abspath(__file__))
-sys.path.append(base_dir)
+if base_dir not in sys.path:
+    sys.path.insert(0, base_dir)
 
-# 忽略和抑制警告 - 设置环境变量（必须在导入其他模块前设置）
-os.environ['PYTHONWARNINGS'] = 'ignore:.*TripleDES.*:DeprecationWarning:cryptography'
-os.environ['PYTHONWARNINGS'] = 'ignore:.*Blowfish.*:DeprecationWarning:cryptography'
+# 抑制警告
+os.environ['PYTHONWARNINGS'] = 'ignore:.*TripleDES.*:DeprecationWarning'
+os.environ['PYTHONWARNINGS'] = 'ignore:.*Blowfish.*:DeprecationWarning'
 os.environ['CRYPTOGRAPHY_SUPPRESS_DEPRECATION_WARNINGS'] = '1'
-
-# 忽略特定警告
 warnings.filterwarnings('ignore', category=DeprecationWarning)
-warnings.filterwarnings('ignore', message='.*TripleDES.*')
-warnings.filterwarnings('ignore', message='.*Blowfish.*')
 
-def set_env_vars():
-    """设置必要的环境变量"""
-    # 确保PyASN1模块能被找到
-    python_path = os.environ.get('PYTHONPATH', '')
-    site_packages = subprocess.check_output(
-        [sys.executable, "-c", "import site; print(';'.join(site.getsitepackages()))"],
-        text=True
-    ).strip()
-    
-    if site_packages and site_packages not in python_path:
-        if python_path:
-            os.environ['PYTHONPATH'] = f"{python_path};{site_packages}"
-        else:
-            os.environ['PYTHONPATH'] = site_packages
-    
-    print(f"PYTHONPATH: {os.environ.get('PYTHONPATH', '')}")
-    return True
-
-def check_dependencies():
-    """检查并安装依赖"""
-    try:
-        # 检查install_dependencies.py是否存在
-        deps_script = os.path.join(base_dir, 'src', 'install_dependencies.py')
-        if os.path.exists(deps_script):
-            print("正在检查项目依赖...")
-            result = subprocess.run([sys.executable, deps_script], 
-                                   capture_output=True, 
-                                   text=True)
-            if result.returncode != 0:
-                print("依赖安装失败，请手动安装依赖")
-                print(f"错误信息: {result.stderr}")
-                return False
-            print("依赖检查完成")
-            return True
-        else:
-            print("未找到依赖安装脚本，跳过依赖检查")
-            return True
-    except Exception as e:
-        print(f"依赖检查失败: {str(e)}")
-        return False
-
-def run_app(host='0.0.0.0', port=5000, reset_db=False):
-    """运行应用程序"""
-    try:
-        # 构建参数
-        cmd = [sys.executable, os.path.join(base_dir, 'src', 'app.py'), 
-               '--host', host, '--port', str(port)]
-        
-        if reset_db:
-            cmd.append('--reset-db')
-            
-        # 运行应用
-        print(f"正在启动应用，访问地址: http://{host}:{port}")
-        subprocess.run(cmd, env=os.environ)  # 传递当前环境变量
-        return True
-    except Exception as e:
-        print(f"应用启动失败: {str(e)}")
-        return False
-
-if __name__ == "__main__":
+def main():
+    """主函数，解析参数并启动应用"""
     # 命令行参数解析
     parser = argparse.ArgumentParser(description='校园安全管理系统启动脚本')
     parser.add_argument('--reset-db', action='store_true', help='重置数据库（删除所有数据并重建）')
     parser.add_argument('--port', type=int, default=5000, help='指定端口号，默认5000')
     parser.add_argument('--host', type=str, default='0.0.0.0', help='指定主机地址，默认0.0.0.0')
-    parser.add_argument('--skip-deps', action='store_true', help='跳过依赖检查')
+    parser.add_argument('--env', type=str, default='development', help='指定运行环境，默认development')
+    parser.add_argument('--debug', action='store_true', help='启用调试模式')
     args = parser.parse_args()
     
-    print("=" * 50)
-    print("校园安全管理系统 (CSMS) 启动")
-    print("=" * 50)
+    logger.info("=" * 50)
+    logger.info("校园安全管理系统 (CSMS) 启动")
+    logger.info("=" * 50)
+    logger.info(f"运行环境: {args.env}")
     
     # 设置环境变量
-    set_env_vars()
+    os.environ['FLASK_ENV'] = args.env
     
-    # 检查依赖
-    if not args.skip_deps:
-        if not check_dependencies():
-            print("依赖检查失败，程序退出")
-            sys.exit(1)
-    
-    # 运行应用
-    run_app(host=args.host, port=args.port, reset_db=args.reset_db) 
+    try:
+        # 导入应用
+        logger.info("正在创建应用实例...")
+        from src.app import create_app, create_tables_and_sample_data
+        
+        # 创建应用
+        app = create_app(args.env)
+        
+        # 初始化数据库
+        logger.info("正在初始化数据库...")
+        if args.reset_db:
+            logger.warning("已启用数据库重置选项，将删除所有现有数据!")
+            # 如果需要实现数据库重置功能，可以在这里添加代码
+        
+        create_tables_and_sample_data(app)
+        logger.info("数据库初始化完成")
+        
+        # 启动应用
+        logger.info(f"启动Web服务，地址: http://{args.host}:{args.port}/")
+        app.run(host=args.host, port=args.port, debug=args.debug)
+        
+    except ImportError as e:
+        logger.error(f"导入错误: {str(e)}")
+        logger.error(traceback.format_exc())
+        sys.exit(1)
+    except Exception as e:
+        logger.error(f"启动错误: {str(e)}")
+        logger.error(traceback.format_exc())
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main() 

@@ -9,10 +9,17 @@ from flask import render_template, redirect, url_for, flash, request, jsonify
 from flask_login import login_required, current_user
 from datetime import datetime
 from sqlalchemy import desc
+from sqlalchemy.orm import joinedload
 
 from src.db import db
-from src.modules.device.models import Device, DeviceType
+from src.models.device import Device, DeviceType
 from src.modules.device import device_bp
+from src.modules.device.services import (
+    get_all_devices, 
+    get_device_by_id, 
+    test_device_connection,
+    get_device_info
+)
 
 # 设备列表
 @device_bp.route('/')
@@ -44,6 +51,9 @@ def index():
     if status:
         query = query.filter(Device.status == status)
     
+    # 确保加载设备类型信息 - 使用joinedload预加载关联的设备类型
+    query = query.options(joinedload(Device.type))
+    
     # 分页查询
     pagination = query.order_by(desc(Device.updated_at)).paginate(
         page=page, per_page=per_page, error_out=False
@@ -56,7 +66,11 @@ def index():
     
     # 获取所有可能的状态值，用于筛选
     status_options = db.session.query(Device.status).distinct().all()
-    status_options = [status[0] for status in status_options]
+    status_options = [status[0] for status in status_options if status[0]]  # 过滤掉空值
+    
+    # 如果没有状态选项，添加默认状态
+    if not status_options:
+        status_options = ['正常', '维修中', '闲置', '报废']
     
     return render_template(
         'device/index.html',
@@ -210,7 +224,8 @@ def edit(device_id):
 @device_bp.route('/view/<int:device_id>')
 @login_required
 def view(device_id):
-    device = Device.query.get_or_404(device_id)
+    # 使用joinedload预加载设备类型
+    device = Device.query.options(joinedload(Device.type)).get_or_404(device_id)
     return render_template('device/view.html', device=device)
 
 # 删除设备
@@ -323,3 +338,68 @@ def delete_type(type_id):
         flash(f'删除设备类型失败: {str(e)}', 'danger')
     
     return redirect(url_for('device.types'))
+
+@device_bp.route('/list')
+def device_list():
+    """设备列表页面"""
+    return render_template('device/list.html')
+
+@device_bp.route('/api/list')
+def api_device_list():
+    """获取设备列表API"""
+    try:
+        devices = get_all_devices()
+        return jsonify({
+            'status': 'success',
+            'devices': [device.to_dict() for device in devices]
+        })
+    except Exception as e:
+        logger.error(f"获取设备列表时出错: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': f'获取设备列表失败: {str(e)}'
+        }), 500
+
+@device_bp.route('/api/info/<int:device_id>')
+def api_device_info(device_id):
+    """获取设备详细信息API"""
+    try:
+        result = get_device_info(device_id)
+        if result.get('success'):
+            return jsonify({
+                'status': 'success',
+                'data': result
+            })
+        else:
+            return jsonify({
+                'status': 'error',
+                'message': result.get('message', '未知错误')
+            }), 404
+    except Exception as e:
+        logger.error(f"获取设备 {device_id} 信息时出错: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': f'获取设备信息失败: {str(e)}'
+        }), 500
+
+@device_bp.route('/api/test-connection/<int:device_id>')
+def api_test_connection(device_id):
+    """测试设备连接API"""
+    try:
+        result = test_device_connection(device_id)
+        if result.get('success'):
+            return jsonify({
+                'status': 'success',
+                'data': result
+            })
+        else:
+            return jsonify({
+                'status': 'error',
+                'message': result.get('message', '未知错误')
+            }), 400
+    except Exception as e:
+        logger.error(f"测试设备 {device_id} 连接时出错: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': f'测试连接失败: {str(e)}'
+        }), 500

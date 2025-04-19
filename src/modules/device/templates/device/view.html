@@ -28,15 +28,15 @@
                         <h4 class="font-weight-bold">{{ device.name }}</h4>
                         <p class="text-muted">
                             {% if device.status == '正常' %}
-                            <span class="badge badge-success">{{ device.status }}</span>
+                            <span class="badge badge-success" style="display: inline-block !important; visibility: visible !important; color: white !important; background-color: #28a745 !important;">正常</span>
                             {% elif device.status == '维修中' %}
-                            <span class="badge badge-warning">{{ device.status }}</span>
+                            <span class="badge badge-warning" style="display: inline-block !important; visibility: visible !important; color: white !important; background-color: #ffc107 !important;">维修中</span>
                             {% elif device.status == '报废' %}
-                            <span class="badge badge-danger">{{ device.status }}</span>
+                            <span class="badge badge-danger" style="display: inline-block !important; visibility: visible !important; color: white !important; background-color: #dc3545 !important;">报废</span>
                             {% elif device.status == '闲置' %}
-                            <span class="badge badge-info">{{ device.status }}</span>
+                            <span class="badge badge-info" style="display: inline-block !important; visibility: visible !important; color: white !important; background-color: #17a2b8 !important;">闲置</span>
                             {% else %}
-                            <span class="badge badge-secondary">{{ device.status }}</span>
+                            <span class="badge badge-secondary" style="display: inline-block !important; visibility: visible !important; color: white !important; background-color: #6c757d !important;">{{ device.status or '未知' }}</span>
                             {% endif %}
                         </p>
                     </div>
@@ -52,7 +52,7 @@
                             </tr>
                             <tr>
                                 <th>设备类型:</th>
-                                <td>{{ device.device_type.name if device.device_type else '-' }}</td>
+                                <td>{{ device.type.name if device.type else '-' }}</td>
                             </tr>
                             <tr>
                                 <th>位置:</th>

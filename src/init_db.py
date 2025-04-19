@@ -10,6 +10,7 @@ import os
 import sys
 import shutil
 from datetime import datetime
+from sqlalchemy import inspect
 
 # 获取项目根目录路径
 base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -69,6 +70,9 @@ if reset_db and os.path.exists(sqlite_db_path):
 try:
     from src.app import app, db
     from src.modules.auth.models import User
+    from src.modules.device.models import DeviceType, Device, init_device_types
+    # 导入性能监控模块的模型
+    from src.modules.performance.models import PerformanceData
 except ImportError as e:
     print(f"导入应用失败: {e}")
     print("请确保您在项目根目录下运行此脚本")
@@ -81,6 +85,15 @@ try:
         # 创建所有表
         db.create_all()
         print("已创建数据库表结构")
+        
+        # 确保性能数据表存在
+        inspector = inspect(db.engine)
+        if 'performance_data' not in inspector.get_table_names():
+            print("创建性能数据表...")
+            db.create_all(tables=[PerformanceData.__table__])
+            print("性能数据表创建成功")
+        else:
+            print("性能数据表已存在")
         
         # 检查是否需要创建初始用户
         admin_user = User.query.filter_by(username='admin').first()
@@ -100,6 +113,13 @@ try:
             db.session.add(test_user)
         else:
             print("测试用户已存在，跳过创建")
+        
+        # 初始化设备类型
+        print("初始化设备类型...")
+        if init_device_types():
+            print("设备类型初始化成功")
+        else:
+            print("设备类型初始化失败，请检查日志")
         
         # 提交更改
         db.session.commit()

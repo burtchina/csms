@@ -2,7 +2,9 @@
 # -*- coding: utf-8 -*-
 
 """
-校园安全管理系统(CSMS) - 数据库模型
+校园安全管理系统(CSMS) - 核心数据库模型
+注意: 设备相关模型已移至src/models/device.py
+      性能相关模型已移至src/models/performance.py
 """
 
 from datetime import datetime
@@ -11,6 +13,9 @@ from flask_login import UserMixin
 import json
 
 from src.core.db import db, login_manager
+# 导入新位置的模型
+from src.models.device import Device
+from src.models.performance import PerformanceRecord, Threshold
 
 # 用户模型
 class User(UserMixin, db.Model):
@@ -49,6 +54,7 @@ class User(UserMixin, db.Model):
 
 # 角色模型
 class Role(db.Model):
+    __table_args__ = {'extend_existing': True}
     """角色模型"""
     __tablename__ = 'roles'
     
@@ -74,32 +80,13 @@ class Role(db.Model):
         return f'<Role {self.name}>'
 
 
-# 设备模型
-class Device(db.Model):
-    """设备模型"""
-    __tablename__ = 'devices'
-    
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(64), nullable=False)
-    ip_address = db.Column(db.String(15), unique=True, nullable=False)
-    location = db.Column(db.String(128))
-    status = db.Column(db.String(16), default='unknown')  # online, offline, warning, error
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
-    # 关系
-    interfaces = db.relationship('Interface', backref='device', lazy='dynamic')
-    faults = db.relationship('Fault', backref='device', lazy='dynamic')
-    performance_records = db.relationship('PerformanceRecord', backref='device', lazy='dynamic')
-    maintenance_tasks = db.relationship('MaintenanceTask', backref='device', lazy='dynamic')
-    thresholds = db.relationship('Threshold', backref='device', lazy='dynamic')
-    
-    def __repr__(self):
-        return f'<Device {self.name} ({self.ip_address})>'
+# 设备模型已移至 src/models/device.py
+# 性能模型已移至 src/models/performance.py
 
 
 # 接口模型
 class Interface(db.Model):
+    __table_args__ = {'extend_existing': True}
     """接口模型"""
     __tablename__ = 'interfaces'
     
@@ -117,6 +104,7 @@ class Interface(db.Model):
 
 # 故障模型
 class Fault(db.Model):
+    __table_args__ = {'extend_existing': True}
     """故障模型"""
     __tablename__ = 'faults'
     
@@ -139,6 +127,7 @@ class Fault(db.Model):
 
 # 维护任务模型
 class MaintenanceTask(db.Model):
+    __table_args__ = {'extend_existing': True}
     """维护任务模型"""
     __tablename__ = 'maintenance_tasks'
     
@@ -163,6 +152,7 @@ class MaintenanceTask(db.Model):
 
 # 任务日志模型
 class TaskLog(db.Model):
+    __table_args__ = {'extend_existing': True}
     """任务日志模型"""
     __tablename__ = 'task_logs'
     
@@ -181,41 +171,17 @@ class TaskLog(db.Model):
         return f'<TaskLog {self.id}>'
 
 
-# 性能记录模型
-class PerformanceRecord(db.Model):
-    """性能记录模型"""
-    __tablename__ = 'performance_records'
-    
-    id = db.Column(db.Integer, primary_key=True)
-    device_id = db.Column(db.Integer, db.ForeignKey('devices.id'), nullable=False)
-    cpu_usage = db.Column(db.Float)
-    memory_usage = db.Column(db.Float)
-    bandwidth_usage = db.Column(db.Float)
-    recorded_at = db.Column(db.DateTime, default=datetime.utcnow)
-    
-    def __repr__(self):
-        return f'<PerformanceRecord {self.id} ({self.device.name})>'
+# 性能记录模型已移至 src/models/performance.py
+# from src.models.performance import PerformanceRecord
 
 
-# 阈值模型
-class Threshold(db.Model):
-    """阈值模型"""
-    __tablename__ = 'thresholds'
-    
-    id = db.Column(db.Integer, primary_key=True)
-    device_id = db.Column(db.Integer, db.ForeignKey('devices.id'), nullable=False)
-    metric_name = db.Column(db.String(32), nullable=False)
-    warning_threshold = db.Column(db.Float, nullable=False)
-    critical_threshold = db.Column(db.Float, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
-    def __repr__(self):
-        return f'<Threshold {self.metric_name} ({self.device.name})>'
+# 阈值模型已移至 src/models/performance.py
+# from src.models.performance import Threshold
 
 
 # 告警模型
 class Alert(db.Model):
+    __table_args__ = {'extend_existing': True}
     """告警模型"""
     __tablename__ = 'alerts'
     
@@ -236,6 +202,7 @@ class Alert(db.Model):
 
 # 系统日志模型
 class SystemLog(db.Model):
+    __table_args__ = {'extend_existing': True}
     """系统日志模型"""
     __tablename__ = 'system_logs'
     

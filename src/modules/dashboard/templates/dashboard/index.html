@@ -1,0 +1,101 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container my-4">
+    <h1 class="mb-4">系统仪表板</h1>
+    
+    <!-- 统计卡片 -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card h-100 bg-primary text-white">
+                <div class="card-body text-center">
+                    <h5 class="card-title">设备总数</h5>
+                    <h1 class="display-4">{{ device_count }}</h1>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card h-100 bg-success text-white">
+                <div class="card-body text-center">
+                    <h5 class="card-title">正常设备</h5>
+                    <h1 class="display-4">{{ normal_count }}</h1>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card h-100 bg-warning text-dark">
+                <div class="card-body text-center">
+                    <h5 class="card-title">维修中</h5>
+                    <h1 class="display-4">{{ maintenance_count }}</h1>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card h-100 bg-danger text-white">
+                <div class="card-body text-center">
+                    <h5 class="card-title">闲置/报废</h5>
+                    <h1 class="display-4">{{ inactive_count + retired_count }}</h1>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 最近添加的设备 -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">最近添加的设备</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>设备名称</th>
+                                    <th>IP地址</th>
+                                    <th>位置</th>
+                                    <th>状态</th>
+                                    <th>添加时间</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for device in recent_devices %}
+                                <tr>
+                                    <td>{{ device.name }}</td>
+                                    <td>{{ device.ip_address }}</td>
+                                    <td>{{ device.location }}</td>
+                                    <td>
+                                        {% if device.status == '正常' %}
+                                        <span class="badge bg-success">{{ device.status }}</span>
+                                        {% elif device.status == '维修中' %}
+                                        <span class="badge bg-warning">{{ device.status }}</span>
+                                        {% else %}
+                                        <span class="badge bg-danger">{{ device.status }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ device.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                                    <td>
+                                        <a href="{{ url_for('device.view', device_id=device.id) }}" class="btn btn-sm btn-info">查看</a>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="6" class="text-center">暂无设备数据</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <a href="{{ url_for('device.index') }}" class="btn btn-primary">查看所有设备</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

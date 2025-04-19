@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>监控错误</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <style>
+        .error-container {
+            margin-top: 100px;
+            text-align: center;
+        }
+        .error-icon {
+            font-size: 5rem;
+            color: #dc3545;
+            margin-bottom: 20px;
+        }
+        .error-message {
+            font-size: 1.5rem;
+            margin-bottom: 30px;
+        }
+        .back-btn {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="error-container">
+            <div class="error-icon">
+                <i class="fas fa-exclamation-triangle"></i>
+                &#9888;
+            </div>
+            <h1 class="text-danger">监控错误</h1>
+            <div class="error-message">
+                {{ message }}
+            </div>
+            <div class="back-btn">
+                <a href="/performance/dashboard" class="btn btn-primary">返回仪表板</a>
+                <a href="javascript:history.back()" class="btn btn-secondary ml-2">返回上一页</a>
+            </div>
+        </div>
+    </div>
+</body>
+</html> 

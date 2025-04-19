@@ -19,9 +19,9 @@
                         设备性能监控面板
                     </div>
                     <div>
-                        <a href="{{ url_for('performance.realtime_monitoring') }}" class="btn btn-outline-primary btn-sm me-2">
+                        <button id="realtime-btn" class="btn btn-outline-primary btn-sm me-2">
                             <i class="fas fa-bolt me-1"></i>实时监控
-                        </a>
+                        </button>
                         <button type="button" id="auto-refresh-btn" class="btn btn-outline-primary btn-sm" data-state="off">
                             <i class="fas fa-clock me-1"></i><span id="auto-refresh-text">开启自动刷新</span>
                         </button>
@@ -32,18 +32,49 @@
                         <i class="fas fa-info-circle me-2"></i>请选择设备查看性能数据
                     </div>
                     <div class="row mt-3">
-                        <div class="col-md-6">
-                            <div class="form-group">
-                                <label for="device-select">选择设备</label>
-                                <select class="form-select" id="device-select">
-                                    <option value="">-- 请选择设备 --</option>
-                                    {% for device in devices %}
-                                    <option value="{{ device.id }}">{{ device.name }} ({{ device.ip_address }})</option>
-                                    {% endfor %}
-                                </select>
+                        <div class="col-12">
+                            <!-- 替换原来的下拉框为设备列表表格 -->
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>ID</th>
+                                            <th>设备名称</th>
+                                            <th>IP地址</th>
+                                            <th>状态</th>
+                                            <th>操作</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% if devices %}
+                                            {% for device in devices %}
+                                            <tr>
+                                                <td>{{ device.id }}</td>
+                                                <td>{{ device.name }}</td>
+                                                <td>{{ device.ip_address }}</td>
+                                                <td><span class="badge bg-success">在线</span></td>
+                                                <td>
+                                                    <button class="btn btn-sm btn-primary select-device-btn" data-device-id="{{ device.id }}">
+                                                        <i class="fas fa-chart-line me-1"></i>查看数据
+                                                    </button>
+                                                    <a href="{{ url_for('performance.realtime_device_monitor', device_id=device.id) }}" class="btn btn-sm btn-success">
+                                                        <i class="fas fa-bolt me-1"></i>实时监控
+                                                    </a>
+                                                </td>
+                                            </tr>
+                                            {% endfor %}
+                                        {% else %}
+                                            <tr>
+                                                <td colspan="5" class="text-center">暂无设备</td>
+                                            </tr>
+                                        {% endif %}
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
-                        <div class="col-md-3">
+                        
+                        <!-- 保留时间范围选择 -->
+                        <div class="col-md-3 mt-3" style="display: none;" id="time-range-container">
                             <div class="mb-3">
                                 <label for="time-range" class="form-label">时间范围</label>
                                 <select class="form-select" id="time-range">
@@ -55,7 +86,9 @@
                                 </select>
                             </div>
                         </div>
-                        <div class="col-md-3">
+                        
+                        <!-- 保留刷新和采集按钮 -->
+                        <div class="col-md-3 mt-3" style="display: none;" id="data-actions-container">
                             <div class="mb-3 d-flex align-items-end">
                                 <button type="button" id="refresh-btn" class="btn btn-primary me-2">
                                     <i class="fas fa-sync-alt me-1"></i>刷新数据
@@ -67,6 +100,9 @@
                                 </form>
                             </div>
                         </div>
+                        
+                        <!-- 添加一个隐藏的设备ID输入框，用于保存当前选中的设备 -->
+                        <input type="hidden" id="device-select" value="">
                     </div>
                 </div>
             </div>
@@ -266,9 +302,23 @@
     var autoRefreshInterval = null;
     
     $(document).ready(function() {
+        // 初始页面加载时隐藏图表区域
+        $('#performance-charts').hide();
+        $('#performance-overview').hide();
+        $('#chart-controls').hide();
+        $('#performance-table-section').hide();
+        
+        // 处理URL参数，如果有auto_load_device参数则自动加载数据
+        var urlParams = new URLSearchParams(window.location.search);
+        var autoLoadDevice = urlParams.get('auto_load_device');
+        if (autoLoadDevice) {
+            // 模拟点击对应设备的按钮
+            $('.select-device-btn[data-device-id="' + autoLoadDevice + '"]').click();
+        }
+        
         // 设备选择改变时的处理
-        $('#device-select').change(function() {
-            var deviceId = $(this).val();
+        $('.select-device-btn').click(function() {
+            var deviceId = $(this).data('device-id');
             var timeRange = $('#time-range').val();
             
             if (deviceId) {
@@ -277,24 +327,26 @@
                 $('#performance-overview').show();
                 $('#chart-controls').show();
                 $('#performance-table-section').show();
+                $('#time-range-container').show();
+                $('#data-actions-container').show();
+                
+                // 设置隐藏输入框的值
+                $('#device-select').val(deviceId);
                 
                 // 加载性能数据
                 loadPerformanceData(deviceId, timeRange);
                 
                 // 更新采集按钮表单action
                 $('#collect-form').attr('action', '/performance/collect/' + deviceId);
-            } else {
-                // 隐藏图表区域和控件
-                $('#performance-charts').hide();
-                $('#performance-overview').hide();
-                $('#chart-controls').hide();
-                $('#performance-table-section').hide();
                 
-                // 清空采集按钮表单action
-                $('#collect-form').attr('action', '#');
+                // 为选中的设备行添加高亮效果
+                $('.table-hover tr').removeClass('table-primary');
+                $(this).closest('tr').addClass('table-primary');
                 
-                // 停止自动刷新
-                stopAutoRefresh();
+                // 如果页面较长，滚动到图表位置
+                $('html, body').animate({
+                    scrollTop: $('#performance-overview').offset().top - 20
+                }, 500);
             }
         });
         
@@ -303,6 +355,17 @@
             var deviceId = $('#device-select').val();
             if (deviceId) {
                 $('#collect-form').submit();
+            } else {
+                alert('请先选择一个设备');
+            }
+        });
+        
+        // 实时监控按钮点击事件
+        $('#realtime-btn').click(function() {
+            var deviceId = $('#device-select').val();
+            if (deviceId) {
+                // 跳转到设备的实时监控页面
+                window.location.href = "{{ url_for('performance.realtime_device_monitor', device_id=0) }}".replace('0', deviceId);
             } else {
                 alert('请先选择一个设备');
             }

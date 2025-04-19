@@ -125,6 +125,19 @@ class ProductionConfig(Config):
             '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'
         ))
         file_handler.setLevel(logging.INFO)
+        
         app.logger.addHandler(file_handler)
         app.logger.setLevel(logging.INFO)
-        app.logger.info('校园安全管理系统启动') 
+        app.logger.info('校园安全管理系统启动')
+
+# 配置映射字典 - 添加此变量以符合app.py中的导入
+config = {
+    'development': DevelopmentConfig,
+    'testing': TestingConfig,
+    'production': ProductionConfig,
+    'default': DevelopmentConfig
+}
+
+def get_config(config_name):
+    """获取指定名称的配置类"""
+    return config.get(config_name, config['default']) 
