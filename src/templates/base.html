@@ -187,6 +187,32 @@
     <!-- Custom JS -->
     <script src="{{ url_for('static', filename='js/main.js') }}?v={{ range(1, 10000) | random }}"></script>
     <script src="{{ url_for('static', filename='js/avatar-generator.js') }}"></script>
+    <script>
+        // 通知菜单项点击处理
+        document.addEventListener('DOMContentLoaded', function() {
+            const notificationItems = document.querySelectorAll('.dropdown-menu[aria-labelledby="notificationsDropdown"] .dropdown-item');
+            
+            notificationItems.forEach(function(item) {
+                item.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const notificationText = this.textContent;
+                    // 可以在这里添加查看通知详情的逻辑
+                    alert('查看通知: ' + notificationText);
+                    // TODO: 未来可以添加跳转到通知详情页或标记为已读的功能
+                });
+            });
+            
+            // 查看全部通知的点击处理
+            const viewAllNotifications = document.querySelector('.dropdown-menu[aria-labelledby="notificationsDropdown"] .dropdown-item.text-center');
+            if (viewAllNotifications) {
+                viewAllNotifications.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    alert('即将跳转到通知中心...');
+                    // TODO: 未来可以添加跳转到通知中心页面的逻辑
+                });
+            }
+        });
+    </script>
     {% block scripts %}{% endblock %}
 </body>
 </html> 
