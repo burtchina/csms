@@ -19,9 +19,6 @@
                         设备性能监控面板
                     </div>
                     <div>
-                        <button id="realtime-btn" class="btn btn-outline-primary btn-sm me-2">
-                            <i class="fas fa-bolt me-1"></i>实时监控
-                        </button>
                         <button type="button" id="auto-refresh-btn" class="btn btn-outline-primary btn-sm" data-state="off">
                             <i class="fas fa-clock me-1"></i><span id="auto-refresh-text">开启自动刷新</span>
                         </button>
@@ -355,17 +352,6 @@
             var deviceId = $('#device-select').val();
             if (deviceId) {
                 $('#collect-form').submit();
-            } else {
-                alert('请先选择一个设备');
-            }
-        });
-        
-        // 实时监控按钮点击事件
-        $('#realtime-btn').click(function() {
-            var deviceId = $('#device-select').val();
-            if (deviceId) {
-                // 跳转到设备的实时监控页面
-                window.location.href = "{{ url_for('performance.realtime_device_monitor', device_id=0) }}".replace('0', deviceId);
             } else {
                 alert('请先选择一个设备');
             }
