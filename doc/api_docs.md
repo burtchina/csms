@@ -429,4 +429,26 @@ GET /api/v1/maintenance
 
 ## API版本控制
 
-本系统API采用URI版本控制，当前版本为v1。未来版本更新将通过URI中的版本号进行区分，如`/api/v2/...`。 
+本系统API采用URI版本控制，当前版本为v1。未来版本更新将通过URI中的版本号进行区分，如`/api/v2/...`。
+
+## 开发注意事项
+
+### 1. Jinja2模板中的集合长度
+
+在Jinja2模板中处理集合长度（如设备列表数量）时，请使用`|length`过滤器而非Python内置的`len()`函数：
+
+**正确用法**:
+```html
+<!-- 获取设备数量 -->
+<td>{{ devices|length }}</td>
+<td>{{ device_type.devices|length }}</td>
+```
+
+**错误用法**:
+```html
+<!-- 这会导致500服务器错误! -->
+<td>{{ len(devices) }}</td>
+<td>{{ len(device_type.devices) }}</td>
+```
+
+这一点在处理设备类型和关联设备数量显示时尤为重要。 

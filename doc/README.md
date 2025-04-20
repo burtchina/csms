@@ -83,9 +83,10 @@
 ## 项目文档
 
 - [项目进度报告](project_progress.md)
-- [API文档](api_docs.md) (待完成)
-- [用户手册](user_manual.md) (待完成)
-- [开发指南](dev_guide.md) (待完成)
+- [API文档](api_docs.md)
+- [用户手册](user_manual.md)
+- [数据持久化方案](data_persistence_plan.md)
+- [Git工作流程手册](git_workflow.md)
 
 ## 默认账号
 
@@ -111,4 +112,18 @@
 
 ## 许可协议
 
-本项目采用 [MIT 许可协议](LICENSE)。 
+本项目采用 [MIT 许可协议](LICENSE)。
+
+## 常见问题解决(FAQ)
+
+### 1. 设备类型页面出现500错误
+
+**问题描述**：访问设备类型页面(`/device/types`)时出现500服务器内部错误。
+
+**原因**：在Jinja2模板中错误使用了Python内置的`len()`函数获取集合长度。
+
+**解决方案**：
+- 在Jinja2模板中，应使用`|length`过滤器而非`len()`函数获取集合长度
+- 示例：将`{{ len(devices) }}`修改为`{{ devices|length }}`
+
+### 2. 其他常见问题 

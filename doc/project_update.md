@@ -1,8 +1,20 @@
 # 校园安全管理系统(CSMS)项目进度更新
 
-## 更新日期: 2023年10月15日
+## 更新日期: 2025年4月21日
 
 ## 已完成工作
+
+### 1. Bug修复
+
+- **修复设备类型页面500错误**
+  - 问题：设备类型页面(`/device/types`)无法加载，出现500服务器内部错误
+  - 原因：在Jinja2模板中错误使用了Python内置的`len()`函数，而该函数在Jinja2中不直接可用
+  - 解决方案：将模板中的`len(type.devices)`和`len(device_type.devices)`替换为Jinja2的`|length`过滤器
+  - 修改文件：
+    - `src/modules/device/templates/device/types.html`
+    - `src/modules/device/templates/device/edit_type.html`
+  - 提交信息：`修复: 设备类型页面500错误，将len()替换为Jinja2的length过滤器`
+  - 详细Git操作流程见：[Git工作流程手册](git_workflow.md)
 
 ### 1. UI界面现代化改进
 
