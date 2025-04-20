@@ -13,7 +13,8 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from src.core.db import db
 from src.models.device import Device
-from src.models.maintenance import MaintenanceRecord
+from src.models.maintenance import MaintenanceRecord, InspectionReport, InspectionItem
+from src.modules.maintenance.inspection_service import batch_info_collect
 
 # 配置日志
 logger = logging.getLogger(__name__)
@@ -166,4 +167,191 @@ def delete_maintenance_record(record_id):
         return jsonify({
             'success': False,
             'message': f'删除维护记录失败: {str(e)}'
+        }), 500
+
+# 设备巡检报告列表页面
+@maintenance_bp.route('/inspection')
+@login_required
+def inspection_reports():
+    # 预处理用户名，避免在模板中使用hasattr
+    username = '系统'
+    if current_user.is_authenticated:
+        try:
+            username = current_user.username
+        except (AttributeError, TypeError):
+            pass
+    
+    return render_template('maintenance/inspection_reports.html', operator_name=username)
+
+# API：启动网络设备批量信息巡检
+@maintenance_bp.route('/api/inspection/start', methods=['POST'])
+@login_required
+def start_batch_inspection():
+    try:
+        data = request.json or {}
+        max_workers = data.get('max_workers', 5)
+        
+        # 避免使用hasattr
+        operator = data.get('operator')
+        if not operator:
+            try:
+                operator = current_user.username
+            except (AttributeError, TypeError):
+                operator = '系统'
+        
+        # 启动批量巡检（异步方式）
+        # 注意：在实际生产环境中，应该使用 Celery 或其他任务队列来处理这种耗时操作
+        # 这里为了简单，直接在请求中执行
+        report_id = batch_info_collect(max_workers=max_workers, operator=operator)
+        
+        if report_id:
+            return jsonify({
+                'success': True,
+                'message': '网络设备批量巡检已启动',
+                'report_id': report_id
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': '启动网络设备批量巡检失败，详情请查看日志'
+            }), 500
+    
+    except Exception as e:
+        logger.error(f"启动网络设备批量巡检失败: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return jsonify({
+            'success': False,
+            'message': f'启动巡检任务失败: {str(e)}'
+        }), 500
+
+# API：获取巡检报告列表
+@maintenance_bp.route('/api/inspection/reports')
+@login_required
+def get_inspection_reports():
+    try:
+        reports = InspectionReport.query.order_by(InspectionReport.created_at.desc()).all()
+        return jsonify({
+            'success': True,
+            'data': [report.to_dict() for report in reports]
+        })
+    
+    except Exception as e:
+        logger.error(f"获取巡检报告列表失败: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': f'获取巡检报告列表失败: {str(e)}'
+        }), 500
+
+# API：获取单个巡检报告详情
+@maintenance_bp.route('/api/inspection/reports/<int:report_id>')
+@login_required
+def get_inspection_report(report_id):
+    try:
+        report = InspectionReport.query.get(report_id)
+        if not report:
+            return jsonify({
+                'success': False,
+                'message': '巡检报告不存在'
+            }), 404
+        
+        # 获取报告中的所有巡检项
+        items = InspectionItem.query.filter_by(report_id=report_id).all()
+        
+        # 构造响应数据
+        response = {
+            'success': True,
+            'data': {
+                'report': report.to_dict(),
+                'items': [item.to_dict() for item in items]
+            }
+        }
+        
+        return jsonify(response)
+    
+    except Exception as e:
+        logger.error(f"获取巡检报告 {report_id} 详情失败: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': f'获取巡检报告详情失败: {str(e)}'
+        }), 500
+
+# API：删除巡检报告
+@maintenance_bp.route('/api/inspection/reports/<int:report_id>', methods=['DELETE'])
+@login_required
+def delete_inspection_report(report_id):
+    try:
+        report = InspectionReport.query.get(report_id)
+        if not report:
+            return jsonify({
+                'success': False,
+                'message': '巡检报告不存在'
+            }), 404
+        
+        # 删除报告（级联删除所有巡检项）
+        db.session.delete(report)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': '巡检报告已删除'
+        })
+    
+    except SQLAlchemyError as e:
+        db.session.rollback()
+        logger.error(f"数据库错误: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': f'数据库错误: {str(e)}'
+        }), 500
+    
+    except Exception as e:
+        logger.error(f"删除巡检报告 {report_id} 失败: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': f'删除巡检报告失败: {str(e)}'
+        }), 500
+
+# API：获取设备的巡检历史
+@maintenance_bp.route('/api/inspection/device/<int:device_id>')
+@login_required
+def get_device_inspection_history(device_id):
+    try:
+        # 检查设备是否存在
+        device = Device.query.get(device_id)
+        if not device:
+            return jsonify({
+                'success': False,
+                'message': '设备不存在'
+            }), 404
+        
+        # 获取设备的所有巡检项
+        items = InspectionItem.query.filter_by(device_id=device_id).order_by(InspectionItem.created_at.desc()).all()
+        
+        # 获取相关的报告ID
+        report_ids = [item.report_id for item in items]
+        reports = InspectionReport.query.filter(InspectionReport.id.in_(report_ids)).all()
+        reports_dict = {report.id: report for report in reports}
+        
+        # 构造响应数据
+        result = []
+        for item in items:
+            report = reports_dict.get(item.report_id)
+            if report:
+                result.append({
+                    'inspection_item': item.to_dict(),
+                    'report_title': report.title,
+                    'report_date': report.start_time.isoformat() if report.start_time else None
+                })
+        
+        return jsonify({
+            'success': True,
+            'data': result
+        })
+    
+    except Exception as e:
+        logger.error(f"获取设备 {device_id} 巡检历史失败: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': f'获取设备巡检历史失败: {str(e)}'
         }), 500 

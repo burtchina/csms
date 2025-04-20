@@ -2,13 +2,32 @@
 
 ## API概述
 
-CSMS系统提供了一系列RESTful API，用于与系统进行交互，支持设备管理、故障处理、维护排期等功能。所有API请求和响应均使用JSON格式进行数据交换。
+CSMS系统提供了一系列RESTful API，用于与系统进行交互，支持设备管理、故障处理、维护排期等功能。所有API请求和响应均使用JSON格式进行数据交换。系统API支持跨平台调用，便于集成到其他系统中。
 
 ## API基础信息
 
 - **基础URL**: `/api/v1`
 - **认证方式**: JWT Token (JSON Web Token)
 - **内容类型**: `application/json`
+- **版本控制**: 在URL中包含版本号(v1)，便于后续API升级
+
+## 通用响应格式
+
+所有API响应均遵循以下格式：
+
+```json
+{
+  "status": "success|error",
+  "message": "操作结果描述",
+  "data": {
+    // 响应数据（成功时）
+  },
+  "error": {
+    "code": "错误代码",
+    "details": "错误详情"
+  }
+}
+```
 
 ## 认证
 
@@ -24,6 +43,7 @@ POST /api/v1/auth/login
 |-------|------|-----|------|
 | username | string | 是 | 用户名 |
 | password | string | 是 | 密码 |
+| remember | boolean | 否 | 是否记住登录状态 |
 
 **响应示例**:
 
@@ -34,11 +54,13 @@ POST /api/v1/auth/login
   "data": {
     "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
     "expires_at": "2023-05-18T10:30:00Z",
+    "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
     "user": {
       "id": 1,
       "username": "admin",
       "email": "admin@example.com",
-      "is_admin": true
+      "role": "admin",
+      "is_active": true
     }
   }
 }
@@ -53,7 +75,7 @@ POST /api/v1/auth/refresh
 **请求头**:
 
 ```
-Authorization: Bearer {token}
+Authorization: Bearer {refresh_token}
 ```
 
 **响应示例**:
@@ -64,8 +86,30 @@ Authorization: Bearer {token}
   "message": "Token已刷新",
   "data": {
     "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-    "expires_at": "2023-05-18T11:30:00Z"
+    "expires_at": "2023-05-18T11:30:00Z",
+    "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
   }
+}
+```
+
+### 注销登录
+
+```
+POST /api/v1/auth/logout
+```
+
+**请求头**:
+
+```
+Authorization: Bearer {token}
+```
+
+**响应示例**:
+
+```json
+{
+  "status": "success",
+  "message": "注销成功"
 }
 ```
 
@@ -84,9 +128,12 @@ GET /api/v1/devices
 | page | integer | 否 | 页码，默认为1 |
 | per_page | integer | 否 | 每页记录数，默认为20 |
 | category | string | 否 | 设备分类 |
+| type_id | integer | 否 | 设备类型ID |
 | status | string | 否 | 设备状态 |
 | location | string | 否 | 设备位置 |
 | search | string | 否 | 搜索关键词 |
+| sort | string | 否 | 排序字段 |
+| order | string | 否 | 排序方式(asc/desc) |
 
 **响应示例**:
 
@@ -100,6 +147,10 @@ GET /api/v1/devices
         "id": 1,
         "name": "摄像头A区-01",
         "category": "camera",
+        "type": {
+          "id": 2,
+          "name": "网络摄像机"
+        },
         "model": "HK-2000",
         "status": "online",
         "location": "A区教学楼",
@@ -110,6 +161,10 @@ GET /api/v1/devices
         "id": 2,
         "name": "门禁系统B区-03",
         "category": "access_control",
+        "type": {
+          "id": 5,
+          "name": "门禁控制器"
+        },
         "model": "AC-500",
         "status": "online",
         "location": "B区宿舍楼",
@@ -145,6 +200,10 @@ GET /api/v1/devices/{device_id}
     "id": 1,
     "name": "摄像头A区-01",
     "category": "camera",
+    "type": {
+      "id": 2,
+      "name": "网络摄像机"
+    },
     "model": "HK-2000",
     "status": "online",
     "location": "A区教学楼",
@@ -181,11 +240,18 @@ POST /api/v1/devices
 |-------|------|-----|------|
 | name | string | 是 | 设备名称 |
 | category | string | 是 | 设备分类 |
+| type_id | integer | 是 | 设备类型ID |
 | model | string | 是 | 设备型号 |
 | location | string | 是 | 设备位置 |
 | ip_address | string | 否 | IP地址 |
 | mac_address | string | 否 | MAC地址 |
-| ... | ... | ... | ... |
+| firmware_version | string | 否 | 固件版本 |
+| installation_date | string | 否 | 安装日期(YYYY-MM-DD) |
+| manufacturer | string | 否 | 制造商 |
+| serial_number | string | 否 | 序列号 |
+| description | string | 否 | 描述 |
+| warranty_expiry | string | 否 | 保修到期日(YYYY-MM-DD) |
+| specs | object | 否 | 设备规格参数 |
 
 **响应示例**:
 
@@ -197,12 +263,11 @@ POST /api/v1/devices
     "id": 121,
     "name": "摄像头C区-15",
     "category": "camera",
+    "type_id": 2,
     "model": "HK-2000",
     "status": "offline",
-    "location": "C区食堂",
-    "ip_address": "192.168.1.120",
-    "created_at": "2023-05-18T09:30:00Z",
-    "updated_at": "2023-05-18T09:30:00Z"
+    "location": "C区宿舍楼",
+    "created_at": "2023-04-25T10:15:30Z"
   }
 }
 ```
@@ -213,14 +278,7 @@ POST /api/v1/devices
 PUT /api/v1/devices/{device_id}
 ```
 
-**请求参数**:
-
-| 参数名 | 类型 | 必填 | 描述 |
-|-------|------|-----|------|
-| name | string | 否 | 设备名称 |
-| status | string | 否 | 设备状态 |
-| location | string | 否 | 设备位置 |
-| ... | ... | ... | ... |
+**请求参数**: 同添加设备，所有参数均为可选
 
 **响应示例**:
 
@@ -230,12 +288,8 @@ PUT /api/v1/devices/{device_id}
   "message": "设备更新成功",
   "data": {
     "id": 1,
-    "name": "摄像头A区-01-更新",
-    "category": "camera",
-    "model": "HK-2000",
-    "status": "maintenance",
-    "location": "A区教学楼",
-    "updated_at": "2023-05-18T09:45:00Z"
+    "name": "摄像头A区-01(已升级)",
+    "updated_at": "2023-04-25T14:30:25Z"
   }
 }
 ```
@@ -251,8 +305,164 @@ DELETE /api/v1/devices/{device_id}
 ```json
 {
   "status": "success",
-  "message": "设备删除成功",
-  "data": null
+  "message": "设备删除成功"
+}
+```
+
+### 批量导入设备
+
+```
+POST /api/v1/devices/bulk-import
+```
+
+**请求参数**:
+
+| 参数名 | 类型 | 必填 | 描述 |
+|-------|------|-----|------|
+| devices | array | 是 | 设备数据数组 |
+| update_existing | boolean | 否 | 是否更新已存在的设备，默认false |
+
+**响应示例**:
+
+```json
+{
+  "status": "success",
+  "message": "批量导入成功",
+  "data": {
+    "total": 10,
+    "success": 8,
+    "failed": 2,
+    "failures": [
+      {
+        "index": 3,
+        "reason": "设备名称重复"
+      },
+      {
+        "index": 7,
+        "reason": "设备类型不存在"
+      }
+    ]
+  }
+}
+```
+
+### 获取设备类型列表
+
+```
+GET /api/v1/device-types
+```
+
+**响应示例**:
+
+```json
+{
+  "status": "success",
+  "message": "获取设备类型成功",
+  "data": {
+    "types": [
+      {
+        "id": 1,
+        "name": "路由器",
+        "description": "网络路由设备",
+        "device_count": 15
+      },
+      {
+        "id": 2,
+        "name": "网络摄像机",
+        "description": "监控摄像设备",
+        "device_count": 42
+      }
+    ]
+  }
+}
+```
+
+## 设备通信API
+
+### 执行设备命令
+
+```
+POST /api/v1/devices/{device_id}/command
+```
+
+**请求参数**:
+
+| 参数名 | 类型 | 必填 | 描述 |
+|-------|------|-----|------|
+| command | string | 是 | 要执行的命令 |
+| protocol | string | 否 | 通信协议(ssh/telnet)，默认ssh |
+| timeout | integer | 否 | 超时时间(秒)，默认10 |
+
+**响应示例**:
+
+```json
+{
+  "status": "success",
+  "message": "命令执行成功",
+  "data": {
+    "output": "命令执行结果...",
+    "execution_time": 1.2
+  }
+}
+```
+
+### 获取设备状态信息
+
+```
+GET /api/v1/devices/{device_id}/status
+```
+
+**响应示例**:
+
+```json
+{
+  "status": "success",
+  "message": "获取状态成功",
+  "data": {
+    "online": true,
+    "uptime": "10天14小时25分钟",
+    "cpu_usage": 15.2,
+    "memory_usage": 42.5,
+    "temperature": 36.8,
+    "last_checked": "2023-04-25T15:30:00Z"
+  }
+}
+```
+
+### 获取设备接口信息
+
+```
+GET /api/v1/devices/{device_id}/interfaces
+```
+
+**响应示例**:
+
+```json
+{
+  "status": "success",
+  "message": "获取接口信息成功",
+  "data": {
+    "interfaces": [
+      {
+        "name": "GigabitEthernet0/0",
+        "status": "up",
+        "ip_address": "192.168.1.1",
+        "mac_address": "00:1A:2B:3C:4D:5E",
+        "speed": "1Gbps",
+        "in_traffic": 15.2,
+        "out_traffic": 8.5
+      },
+      {
+        "name": "GigabitEthernet0/1",
+        "status": "down",
+        "ip_address": null,
+        "mac_address": "00:1A:2B:3C:4D:5F",
+        "speed": "1Gbps",
+        "in_traffic": 0,
+        "out_traffic": 0
+      }
+    ]
+  }
 }
 ```
 
@@ -270,9 +480,11 @@ GET /api/v1/faults
 |-------|------|-----|------|
 | page | integer | 否 | 页码，默认为1 |
 | per_page | integer | 否 | 每页记录数，默认为20 |
-| status | string | 否 | 故障状态 |
-| priority | string | 否 | 故障优先级 |
 | device_id | integer | 否 | 设备ID |
+| status | string | 否 | 故障状态(pending/processing/resolved) |
+| severity | string | 否 | 严重程度(low/medium/high/critical) |
+| start_date | string | 否 | 开始日期(YYYY-MM-DD) |
+| end_date | string | 否 | 结束日期(YYYY-MM-DD) |
 
 **响应示例**:
 
@@ -283,26 +495,28 @@ GET /api/v1/faults
   "data": {
     "faults": [
       {
-        "id": "F001",
+        "id": 1,
+        "title": "摄像头离线",
         "device_id": 1,
         "device_name": "摄像头A区-01",
-        "type": "signal_loss",
-        "description": "视频信号丢失",
-        "status": "pending",
-        "priority": "high",
-        "reported_at": "2023-04-15T08:30:00Z",
-        "reported_by": "system"
+        "fault_type": "connection_failure",
+        "severity": "high",
+        "status": "resolved",
+        "reported_by": "admin",
+        "created_at": "2023-04-10T08:15:00Z",
+        "updated_at": "2023-04-10T10:30:00Z"
       },
       {
-        "id": "F002",
+        "id": 2,
+        "title": "门禁系统异常",
         "device_id": 2,
         "device_name": "门禁系统B区-03",
-        "type": "hardware_failure",
-        "description": "读卡器故障",
-        "status": "in_progress",
-        "priority": "medium",
-        "reported_at": "2023-04-16T13:45:00Z",
-        "reported_by": "user_id_5"
+        "fault_type": "hardware_failure",
+        "severity": "critical",
+        "status": "processing",
+        "reported_by": "operator1",
+        "created_at": "2023-04-15T14:20:00Z",
+        "updated_at": "2023-04-15T15:10:00Z"
       }
     ],
     "pagination": {
@@ -317,39 +531,95 @@ GET /api/v1/faults
 }
 ```
 
-## 维护管理API
-
-### 获取维护计划
+### 报告故障
 
 ```
-GET /api/v1/maintenance
+POST /api/v1/faults
 ```
+
+**请求参数**:
+
+| 参数名 | 类型 | 必填 | 描述 |
+|-------|------|-----|------|
+| title | string | 是 | 故障标题 |
+| device_id | integer | 是 | 设备ID |
+| fault_type | string | 是 | 故障类型 |
+| severity | string | 是 | 严重程度(low/medium/high/critical) |
+| description | string | 是 | 故障描述 |
+| attachments | array | 否 | 附件文件ID数组 |
 
 **响应示例**:
 
 ```json
 {
   "status": "success",
-  "message": "获取维护计划成功",
+  "message": "故障报告创建成功",
+  "data": {
+    "id": 36,
+    "title": "交换机端口故障",
+    "status": "pending",
+    "created_at": "2023-04-25T16:45:00Z"
+  }
+}
+```
+
+## 维护管理API
+
+### 获取维护计划列表
+
+```
+GET /api/v1/maintenance
+```
+
+**请求参数**:
+
+| 参数名 | 类型 | 必填 | 描述 |
+|-------|------|-----|------|
+| page | integer | 否 | 页码，默认为1 |
+| per_page | integer | 否 | 每页记录数，默认为20 |
+| device_id | integer | 否 | 设备ID |
+| status | string | 否 | 维护状态(planned/inprogress/completed/cancelled) |
+| start_date | string | 否 | 开始日期(YYYY-MM-DD) |
+| end_date | string | 否 | 结束日期(YYYY-MM-DD) |
+
+**响应示例**:
+
+```json
+{
+  "status": "success",
+  "message": "获取维护计划列表成功",
   "data": {
     "maintenance_plans": [
       {
         "id": 1,
+        "title": "摄像头季度检查",
         "device_id": 1,
         "device_name": "摄像头A区-01",
-        "type": "routine",
-        "description": "例行检查和清洁",
-        "scheduled_at": "2023-07-01T08:30:00Z",
-        "duration": 60,
-        "assigned_to": "user_id_8",
-        "status": "scheduled"
+        "maintenance_type": "routine",
+        "status": "completed",
+        "assigned_to": "technician1",
+        "start_time": "2023-04-01T08:00:00Z",
+        "end_time": "2023-04-01T09:00:00Z",
+        "created_at": "2023-03-15T10:20:00Z"
+      },
+      {
+        "id": 2,
+        "title": "门禁系统固件升级",
+        "device_id": 2,
+        "device_name": "门禁系统B区-03",
+        "maintenance_type": "upgrade",
+        "status": "planned",
+        "assigned_to": "technician2",
+        "start_time": "2023-04-30T14:00:00Z",
+        "end_time": "2023-04-30T16:00:00Z",
+        "created_at": "2023-04-15T11:30:00Z"
       }
     ],
     "pagination": {
-      "total": 45,
+      "total": 28,
       "per_page": 20,
       "current_page": 1,
-      "last_page": 3,
+      "last_page": 2,
       "from": 1,
       "to": 20
     }
@@ -357,98 +627,295 @@ GET /api/v1/maintenance
 }
 ```
 
-## 错误处理
+## 性能监控API
 
-所有API可能的错误响应：
+### 获取性能指标列表
 
-### 验证错误
+```
+GET /api/v1/performance/metrics
+```
+
+**响应示例**:
 
 ```json
 {
-  "status": "error",
-  "message": "请求参数验证失败",
-  "errors": {
-    "name": ["设备名称为必填项"],
-    "ip_address": ["IP地址格式不正确"]
+  "status": "success",
+  "message": "获取性能指标列表成功",
+  "data": {
+    "metrics": [
+      {
+        "id": "cpu_usage",
+        "name": "CPU使用率",
+        "unit": "%",
+        "description": "设备CPU使用百分比"
+      },
+      {
+        "id": "memory_usage",
+        "name": "内存使用率",
+        "unit": "%",
+        "description": "设备内存使用百分比"
+      },
+      {
+        "id": "temperature",
+        "name": "温度",
+        "unit": "°C",
+        "description": "设备工作温度"
+      }
+    ]
   }
 }
 ```
 
-### 认证错误
+### 获取设备性能数据
+
+```
+GET /api/v1/devices/{device_id}/performance
+```
+
+**请求参数**:
+
+| 参数名 | 类型 | 必填 | 描述 |
+|-------|------|-----|------|
+| metrics | string | 否 | 指标ID列表，用逗号分隔 |
+| start_time | string | 否 | 开始时间(ISO8601格式) |
+| end_time | string | 否 | 结束时间(ISO8601格式) |
+| interval | string | 否 | 时间间隔(minute/hour/day)，默认hour |
+| limit | integer | 否 | 返回数据点数量限制，默认100 |
+
+**响应示例**:
 
 ```json
 {
-  "status": "error",
-  "message": "认证失败",
-  "error_code": "authentication_failed"
+  "status": "success",
+  "message": "获取性能数据成功",
+  "data": {
+    "device_id": 1,
+    "device_name": "摄像头A区-01",
+    "start_time": "2023-04-24T00:00:00Z",
+    "end_time": "2023-04-24T23:59:59Z",
+    "interval": "hour",
+    "metrics": {
+      "cpu_usage": [
+        {
+          "timestamp": "2023-04-24T00:00:00Z",
+          "value": 12.5
+        },
+        {
+          "timestamp": "2023-04-24T01:00:00Z",
+          "value": 15.2
+        }
+      ],
+      "memory_usage": [
+        {
+          "timestamp": "2023-04-24T00:00:00Z",
+          "value": 35.8
+        },
+        {
+          "timestamp": "2023-04-24T01:00:00Z",
+          "value": 36.2
+        }
+      ]
+    }
+  }
 }
 ```
 
-### 权限错误
+### 设置性能阈值
+
+```
+POST /api/v1/devices/{device_id}/thresholds
+```
+
+**请求参数**:
+
+| 参数名 | 类型 | 必填 | 描述 |
+|-------|------|-----|------|
+| metric_id | string | 是 | 指标ID |
+| warning_threshold | number | 否 | 警告阈值 |
+| critical_threshold | number | 否 | 严重阈值 |
+| enabled | boolean | 否 | 是否启用，默认true |
+
+**响应示例**:
 
 ```json
 {
-  "status": "error",
-  "message": "没有权限执行此操作",
-  "error_code": "permission_denied"
+  "status": "success",
+  "message": "阈值设置成功",
+  "data": {
+    "id": 12,
+    "device_id": 1,
+    "metric_id": "cpu_usage",
+    "warning_threshold": 70,
+    "critical_threshold": 90,
+    "enabled": true,
+    "created_at": "2023-04-25T17:30:00Z"
+  }
 }
 ```
 
-### 资源不存在
+### 获取设备告警列表
+
+```
+GET /api/v1/devices/{device_id}/alerts
+```
+
+**请求参数**:
+
+| 参数名 | 类型 | 必填 | 描述 |
+|-------|------|-----|------|
+| page | integer | 否 | 页码，默认为1 |
+| per_page | integer | 否 | 每页记录数，默认为20 |
+| status | string | 否 | 告警状态(active/acknowledged/resolved) |
+| severity | string | 否 | 严重程度(warning/critical) |
+| start_time | string | 否 | 开始时间(ISO8601格式) |
+| end_time | string | 否 | 结束时间(ISO8601格式) |
+
+**响应示例**:
 
 ```json
 {
-  "status": "error",
-  "message": "请求的资源不存在",
-  "error_code": "resource_not_found"
+  "status": "success",
+  "message": "获取告警列表成功",
+  "data": {
+    "alerts": [
+      {
+        "id": 1,
+        "device_id": 1,
+        "device_name": "摄像头A区-01",
+        "metric_id": "cpu_usage",
+        "metric_name": "CPU使用率",
+        "value": 75.2,
+        "threshold": 70,
+        "severity": "warning",
+        "status": "active",
+        "created_at": "2023-04-24T15:30:00Z",
+        "updated_at": "2023-04-24T15:30:00Z"
+      },
+      {
+        "id": 2,
+        "device_id": 1,
+        "device_name": "摄像头A区-01",
+        "metric_id": "temperature",
+        "metric_name": "温度",
+        "value": 45.8,
+        "threshold": 40,
+        "severity": "critical",
+        "status": "acknowledged",
+        "created_at": "2023-04-24T16:15:00Z",
+        "updated_at": "2023-04-24T16:30:00Z"
+      }
+    ],
+    "pagination": {
+      "total": 5,
+      "per_page": 20,
+      "current_page": 1,
+      "last_page": 1,
+      "from": 1,
+      "to": 5
+    }
+  }
 }
 ```
 
-### 服务器错误
+## 系统设置API
+
+### 获取用户列表
+
+```
+GET /api/v1/users
+```
+
+**响应示例**:
 
 ```json
 {
-  "status": "error",
-  "message": "服务器内部错误",
-  "error_code": "internal_server_error"
+  "status": "success",
+  "message": "获取用户列表成功",
+  "data": {
+    "users": [
+      {
+        "id": 1,
+        "username": "admin",
+        "email": "admin@example.com",
+        "role": "admin",
+        "is_active": true,
+        "created_at": "2023-03-01T10:00:00Z"
+      },
+      {
+        "id": 2,
+        "username": "operator1",
+        "email": "operator1@example.com",
+        "role": "operator",
+        "is_active": true,
+        "created_at": "2023-03-05T14:20:00Z"
+      }
+    ]
+  }
 }
 ```
 
-## API状态码
+### 获取系统配置
 
-| 状态码 | 描述 |
+```
+GET /api/v1/settings
+```
+
+**响应示例**:
+
+```json
+{
+  "status": "success",
+  "message": "获取系统配置成功",
+  "data": {
+    "settings": {
+      "site_name": "校园安全管理系统",
+      "device_polling_interval": 300,
+      "alert_notification_channels": ["email", "sms"],
+      "maintenance_reminder_days": 7,
+      "default_pagination_size": 20
+    }
+  }
+}
+```
+
+## 错误处理
+
+### 常见错误码
+
+| 错误码 | 描述 |
 |-------|------|
-| 200 | 请求成功 |
-| 201 | 资源创建成功 |
 | 400 | 请求参数错误 |
-| 401 | 未授权或Token无效 |
+| 401 | 未授权(未登录或token无效) |
 | 403 | 权限不足 |
 | 404 | 资源不存在 |
-| 422 | 参数验证错误 |
+| 409 | 资源冲突 |
+| 422 | 请求实体无法处理 |
 | 500 | 服务器内部错误 |
 
-## API版本控制
+### 错误响应示例
 
-本系统API采用URI版本控制，当前版本为v1。未来版本更新将通过URI中的版本号进行区分，如`/api/v2/...`。
-
-## 开发注意事项
-
-### 1. Jinja2模板中的集合长度
-
-在Jinja2模板中处理集合长度（如设备列表数量）时，请使用`|length`过滤器而非Python内置的`len()`函数：
-
-**正确用法**:
-```html
-<!-- 获取设备数量 -->
-<td>{{ devices|length }}</td>
-<td>{{ device_type.devices|length }}</td>
+```json
+{
+  "status": "error",
+  "message": "设备不存在",
+  "error": {
+    "code": 404,
+    "details": "无法找到ID为123的设备"
+  }
+}
 ```
 
-**错误用法**:
-```html
-<!-- 这会导致500服务器错误! -->
-<td>{{ len(devices) }}</td>
-<td>{{ len(device_type.devices) }}</td>
-```
+## API限制
 
-这一点在处理设备类型和关联设备数量显示时尤为重要。 
+- 每个IP地址每分钟最多允许100次请求
+- 身份验证API每个IP地址每小时最多允许10次失败尝试
+- 每次请求最大数据大小为10MB
+- 文件上传API每次请求最大文件大小为50MB
+
+## 版本历史
+
+| 版本 | 发布日期 | 说明 |
+|-----|---------|-----|
+| v1.0.0 | 2023-03-15 | 初始版本 |
+| v1.1.0 | 2023-04-10 | 添加设备批量导入API |
+| v1.2.0 | 2023-04-25 | 添加性能监控和设备通信API | 

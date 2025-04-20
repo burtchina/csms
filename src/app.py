@@ -83,7 +83,7 @@ def create_app(config_name=None):
     with app.app_context():
         from src.modules.auth.models import User
         from src.models.device import Device, DeviceType
-        from src.models.maintenance import MaintenanceRecord
+        from src.models.maintenance import MaintenanceRecord, InspectionReport, InspectionItem
         
         @login_manager.user_loader
         def load_user(user_id):
@@ -234,11 +234,11 @@ def create_app(config_name=None):
         # 允许脚本执行和内联脚本，并添加外部CDN源
         response.headers['Content-Security-Policy'] = (
             "default-src 'self'; "
-            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; "
-            "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.googleapis.com; "
-            "font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; "
-            "img-src 'self' data:; "
-            "connect-src 'self'; "
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://code.jquery.com https://*.datatables.net; "
+            "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.googleapis.com https://*.datatables.net; "
+            "font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com https://*.datatables.net; "
+            "img-src 'self' data: https://*.datatables.net; "
+            "connect-src 'self' https://*.datatables.net; "
             "frame-src 'self';"
         )
         return response

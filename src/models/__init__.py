@@ -11,6 +11,9 @@ from src.models.device import Device, DeviceType
 # 导入性能相关模型
 from src.models.performance import PerformanceRecord, Threshold
 
+# 导入维护相关模型
+from src.models.maintenance import MaintenanceRecord, InspectionReport, InspectionItem
+
 # 后续添加其他模型导入
 # from .user import User, Role
 
@@ -19,5 +22,8 @@ __all__ = [
     'Device', 
     'DeviceType',
     'PerformanceRecord',
-    'Threshold'
-]  # 后续添加更多模型 
+    'Threshold',
+    'MaintenanceRecord',
+    'InspectionReport',
+    'InspectionItem'
+] 

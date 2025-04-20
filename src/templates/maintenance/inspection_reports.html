@@ -1,0 +1,566 @@
+{% extends "base.html" %}
+
+{% block title %}网络设备巡检报告{% endblock %}
+
+{% block head %}
+<!-- DataTables CSS -->
+<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.11.5/css/dataTables.bootstrap5.min.css"/>
+<!-- Toastr CSS -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4">
+    <h1 class="mt-4">网络设备巡检报告</h1>
+    <ol class="breadcrumb mb-4">
+        <li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}">首页</a></li>
+        <li class="breadcrumb-item active">巡检报告</li>
+    </ol>
+    
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <div>
+                <i class="fas fa-clipboard-check me-1"></i>
+                巡检报告管理
+            </div>
+            <button type="button" class="btn btn-primary" id="btnStartInspection">
+                <i class="fas fa-play me-1"></i>启动网络设备批量巡检
+            </button>
+        </div>
+        <div class="card-body">
+            <!-- 巡检报告列表 -->
+            <div class="table-responsive">
+                <table class="table table-bordered" id="inspectionReportsTable" width="100%">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>报告标题</th>
+                            <th>巡检时间</th>
+                            <th>设备总数</th>
+                            <th>正常设备</th>
+                            <th>异常设备</th>
+                            <th>失败设备</th>
+                            <th>操作人</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- 报告数据会通过JavaScript动态加载 -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 巡检报告详情模态框 -->
+<div class="modal fade" id="reportDetailModal" tabindex="-1" aria-labelledby="reportDetailModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="reportDetailModalLabel">巡检报告详情</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- 报告基本信息 -->
+                <div class="card mb-3">
+                    <div class="card-header bg-light">
+                        <h5 class="mb-0">报告基本信息</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <p><strong>报告标题：</strong><span id="reportTitle"></span></p>
+                                <p><strong>巡检时间：</strong><span id="reportTime"></span></p>
+                                <p><strong>操作人员：</strong><span id="reportOperator"></span></p>
+                            </div>
+                            <div class="col-md-6">
+                                <p><strong>设备总数：</strong><span id="reportTotalDevices"></span></p>
+                                <p><strong>巡检结果：</strong>
+                                    <span class="badge bg-success" id="reportSuccessCount"></span>
+                                    <span class="badge bg-warning" id="reportAbnormalCount"></span>
+                                    <span class="badge bg-danger" id="reportFailedCount"></span>
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 报告摘要 -->
+                <div class="card mb-3">
+                    <div class="card-header bg-light">
+                        <h5 class="mb-0">报告摘要</h5>
+                    </div>
+                    <div class="card-body">
+                        <pre id="reportSummary" style="white-space: pre-wrap;"></pre>
+                    </div>
+                </div>
+                
+                <!-- 巡检项列表 -->
+                <div class="card">
+                    <div class="card-header bg-light">
+                        <h5 class="mb-0">巡检明细</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-bordered" id="inspectionItemsTable" width="100%">
+                                <thead>
+                                    <tr>
+                                        <th>设备名称</th>
+                                        <th>IP地址</th>
+                                        <th>状态</th>
+                                        <th>CPU使用率</th>
+                                        <th>内存使用率</th>
+                                        <th>运行时间</th>
+                                        <th>详情</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <!-- 巡检项数据会通过JavaScript动态加载 -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 巡检项详情模态框 -->
+<div class="modal fade" id="itemDetailModal" tabindex="-1" aria-labelledby="itemDetailModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="itemDetailModalLabel">设备巡检详情</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <p><strong>设备名称：</strong><span id="itemDeviceName"></span></p>
+                        <p><strong>设备IP：</strong><span id="itemDeviceIP"></span></p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>巡检时间：</strong><span id="itemInspectionTime"></span></p>
+                        <p><strong>巡检状态：</strong><span id="itemStatus"></span></p>
+                    </div>
+                </div>
+                
+                <!-- 异常项 -->
+                <div class="card mb-3" id="abnormalItemsCard">
+                    <div class="card-header bg-warning text-dark">
+                        <h5 class="mb-0">异常项</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-bordered" id="abnormalItemsTable">
+                                <thead>
+                                    <tr>
+                                        <th>检查项</th>
+                                        <th>当前值</th>
+                                        <th>阈值</th>
+                                        <th>异常描述</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <!-- 异常项数据会通过JavaScript动态加载 -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 正常项 -->
+                <div class="card">
+                    <div class="card-header bg-success text-white">
+                        <h5 class="mb-0">正常项</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-bordered" id="normalItemsTable">
+                                <thead>
+                                    <tr>
+                                        <th>检查项</th>
+                                        <th>当前值</th>
+                                        <th>阈值</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <!-- 正常项数据会通过JavaScript动态加载 -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 启动巡检对话框 -->
+<div class="modal fade" id="startInspectionModal" tabindex="-1" aria-labelledby="startInspectionModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="startInspectionModalLabel">启动网络设备批量巡检</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="startInspectionForm">
+                    <div class="mb-3">
+                        <label for="maxWorkers" class="form-label">最大并发数</label>
+                        <input type="number" class="form-control" id="maxWorkers" name="maxWorkers" value="5" min="1" max="20">
+                        <div class="form-text">设置同时巡检的最大设备数量，根据服务器性能调整</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="operator" class="form-label">操作人员</label>
+                        <input type="text" class="form-control" id="operator" name="operator" value="{{ operator_name }}">
+                    </div>
+                </form>
+                <div class="alert alert-info" role="alert">
+                    <i class="fas fa-info-circle me-1"></i>
+                    巡检过程可能需要较长时间，请耐心等待。巡检完成后，报告将会自动显示在列表中。
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" id="btnConfirmStartInspection">确认启动</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- DataTables JS -->
+<script type="text/javascript" src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
+<script type="text/javascript" src="https://cdn.datatables.net/1.11.5/js/dataTables.bootstrap5.min.js"></script>
+<!-- Toastr JS -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js"></script>
+
+<script>
+$(document).ready(function() {
+    // 初始化模态框
+    const reportDetailModal = new bootstrap.Modal(document.getElementById('reportDetailModal'));
+    const itemDetailModal = new bootstrap.Modal(document.getElementById('itemDetailModal'));
+    const startInspectionModal = new bootstrap.Modal(document.getElementById('startInspectionModal'));
+    
+    // 初始化数据表
+    const reportsTable = $('#inspectionReportsTable').DataTable({
+        language: {
+            url: "//cdn.datatables.net/plug-ins/1.10.25/i18n/Chinese.json"
+        },
+        responsive: true,
+        order: [[0, 'desc']]
+    });
+    
+    // 加载巡检报告列表
+    function loadReports() {
+        $.ajax({
+            url: '/maintenance/api/inspection/reports',
+            type: 'GET',
+            dataType: 'json',
+            success: function(response) {
+                if (response.success && response.data) {
+                    reportsTable.clear();
+                    
+                    response.data.forEach(report => {
+                        const startTime = new Date(report.start_time);
+                        const formattedTime = startTime.toLocaleString();
+                        
+                        reportsTable.row.add([
+                            report.id,
+                            report.title,
+                            formattedTime,
+                            report.total_devices,
+                            `<span class="badge bg-success">${report.successful_devices}</span>`,
+                            `<span class="badge bg-warning">${report.abnormal_devices}</span>`,
+                            `<span class="badge bg-danger">${report.failed_devices}</span>`,
+                            report.operator || '系统',
+                            `<button class="btn btn-sm btn-info view-report" data-id="${report.id}">
+                                <i class="fas fa-eye"></i> 查看
+                             </button>
+                             <button class="btn btn-sm btn-danger delete-report" data-id="${report.id}">
+                                <i class="fas fa-trash"></i> 删除
+                             </button>`
+                        ]);
+                    });
+                    
+                    reportsTable.draw();
+                } else {
+                    showToast('error', '加载巡检报告失败', response.message || '未知错误');
+                }
+            },
+            error: function(xhr) {
+                showToast('error', '加载巡检报告失败', '请求失败：' + xhr.status);
+            }
+        });
+    }
+    
+    // 初始加载报告
+    loadReports();
+    
+    // 显示报告详情
+    $(document).on('click', '.view-report', function() {
+        const reportId = $(this).data('id');
+        
+        // 加载报告详情
+        $.ajax({
+            url: `/maintenance/api/inspection/reports/${reportId}`,
+            type: 'GET',
+            dataType: 'json',
+            success: function(response) {
+                if (response.success && response.data) {
+                    const report = response.data.report;
+                    const items = response.data.items;
+                    
+                    // 填充报告基本信息
+                    $('#reportTitle').text(report.title);
+                    $('#reportTime').text(new Date(report.start_time).toLocaleString() + ' 至 ' + 
+                                        new Date(report.end_time).toLocaleString());
+                    $('#reportOperator').text(report.operator || '系统');
+                    $('#reportTotalDevices').text(report.total_devices);
+                    $('#reportSuccessCount').text('正常: ' + report.successful_devices);
+                    $('#reportAbnormalCount').text('异常: ' + report.abnormal_devices);
+                    $('#reportFailedCount').text('失败: ' + report.failed_devices);
+                    $('#reportSummary').text(report.summary || '无摘要信息');
+                    
+                    // 清空并填充巡检项表格
+                    const itemsTable = $('#inspectionItemsTable tbody');
+                    itemsTable.empty();
+                    
+                    items.forEach(item => {
+                        const statusBadge = getStatusBadge(item.status);
+                        const cpuUsage = item.cpu_usage !== null ? item.cpu_usage + '%' : 'N/A';
+                        const memoryUsage = item.memory_usage !== null ? item.memory_usage + '%' : 'N/A';
+                        
+                        itemsTable.append(`
+                            <tr>
+                                <td>${item.device_name}</td>
+                                <td>${item.device_ip || 'N/A'}</td>
+                                <td>${statusBadge}</td>
+                                <td>${cpuUsage}</td>
+                                <td>${memoryUsage}</td>
+                                <td>${item.uptime || 'N/A'}</td>
+                                <td>
+                                    <button class="btn btn-sm btn-primary view-item" 
+                                            data-bs-toggle="tooltip" 
+                                            title="查看详情"
+                                            data-item='${JSON.stringify(item)}'>
+                                        <i class="fas fa-list-ul"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        `);
+                    });
+                    
+                    // 显示模态框
+                    reportDetailModal.show();
+                } else {
+                    showToast('error', '加载报告详情失败', response.message || '未知错误');
+                }
+            },
+            error: function(xhr) {
+                showToast('error', '加载报告详情失败', '请求失败：' + xhr.status);
+            }
+        });
+    });
+    
+    // 获取状态徽章
+    function getStatusBadge(status) {
+        switch(status) {
+            case '正常':
+                return '<span class="badge bg-success">正常</span>';
+            case '异常':
+                return '<span class="badge bg-warning">异常</span>';
+            case '失败':
+                return '<span class="badge bg-danger">失败</span>';
+            default:
+                return '<span class="badge bg-secondary">未知</span>';
+        }
+    }
+    
+    // 删除报告
+    $(document).on('click', '.delete-report', function() {
+        const reportId = $(this).data('id');
+        
+        if (confirm('确定要删除这个巡检报告吗？此操作不可恢复。')) {
+            $.ajax({
+                url: `/maintenance/api/inspection/reports/${reportId}`,
+                type: 'DELETE',
+                dataType: 'json',
+                success: function(response) {
+                    if (response.success) {
+                        showToast('success', '删除成功', '巡检报告已成功删除');
+                        loadReports();  // 重新加载报告列表
+                    } else {
+                        showToast('error', '删除失败', response.message || '未知错误');
+                    }
+                },
+                error: function(xhr) {
+                    showToast('error', '删除失败', '请求失败：' + xhr.status);
+                }
+            });
+        }
+    });
+    
+    // 查看巡检项详情
+    $(document).on('click', '.view-item', function() {
+        const itemData = $(this).data('item');
+        
+        // 填充巡检项基本信息
+        $('#itemDeviceName').text(itemData.device_name);
+        $('#itemDeviceIP').text(itemData.device_ip || 'N/A');
+        $('#itemInspectionTime').text(new Date(itemData.created_at).toLocaleString());
+        
+        // 设置状态
+        let statusHtml = '';
+        switch(itemData.status) {
+            case '正常':
+                statusHtml = '<span class="badge bg-success">正常</span>';
+                break;
+            case '异常':
+                statusHtml = '<span class="badge bg-warning">异常</span>';
+                break;
+            case '失败':
+                statusHtml = '<span class="badge bg-danger">失败</span>';
+                break;
+            default:
+                statusHtml = '<span class="badge bg-secondary">未知</span>';
+        }
+        $('#itemStatus').html(statusHtml);
+        
+        // 解析巡检结果
+        let inspectionResults = {};
+        try {
+            if (itemData.inspection_results) {
+                inspectionResults = JSON.parse(itemData.inspection_results);
+            }
+        } catch (e) {
+            console.error('解析巡检结果失败：', e);
+        }
+        
+        // 清空表格
+        $('#abnormalItemsTable tbody').empty();
+        $('#normalItemsTable tbody').empty();
+        
+        // 显示或隐藏异常项卡片
+        if (inspectionResults.abnormal_items && inspectionResults.abnormal_items.length > 0) {
+            $('#abnormalItemsCard').show();
+            
+            // 填充异常项
+            inspectionResults.abnormal_items.forEach(item => {
+                $('#abnormalItemsTable tbody').append(`
+                    <tr>
+                        <td>${item.item}</td>
+                        <td>${item.value}</td>
+                        <td>${item.threshold}</td>
+                        <td>${item.message}</td>
+                    </tr>
+                `);
+            });
+        } else {
+            $('#abnormalItemsCard').hide();
+        }
+        
+        // 填充正常项
+        if (inspectionResults.normal_items && inspectionResults.normal_items.length > 0) {
+            inspectionResults.normal_items.forEach(item => {
+                $('#normalItemsTable tbody').append(`
+                    <tr>
+                        <td>${item.item}</td>
+                        <td>${item.value}</td>
+                        <td>${item.threshold}</td>
+                    </tr>
+                `);
+            });
+        }
+        
+        // 显示模态框
+        itemDetailModal.show();
+    });
+    
+    // 启动巡检
+    $('#btnStartInspection').click(function() {
+        startInspectionModal.show();
+    });
+    
+    // 确认启动巡检
+    $('#btnConfirmStartInspection').click(function() {
+        const maxWorkers = $('#maxWorkers').val();
+        const operator = $('#operator').val();
+        
+        // 禁用按钮，显示加载状态
+        const $btn = $(this);
+        const originalText = $btn.html();
+        $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> 处理中...');
+        
+        // 发送请求
+        $.ajax({
+            url: '/maintenance/api/inspection/start',
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({
+                max_workers: parseInt(maxWorkers),
+                operator: operator
+            }),
+            success: function(response) {
+                if (response.success) {
+                    showToast('success', '巡检已启动', '网络设备批量巡检已成功启动，请稍后查看报告');
+                    startInspectionModal.hide();
+                    
+                    // 2秒后刷新报告列表
+                    setTimeout(function() {
+                        loadReports();
+                    }, 2000);
+                } else {
+                    showToast('error', '启动巡检失败', response.message || '未知错误');
+                }
+            },
+            error: function(xhr) {
+                showToast('error', '启动巡检失败', '请求失败：' + xhr.status);
+            },
+            complete: function() {
+                // 恢复按钮状态
+                $btn.prop('disabled', false).html(originalText);
+            }
+        });
+    });
+    
+    // 工具提示初始化
+    $('[data-bs-toggle="tooltip"]').tooltip();
+    
+    // 显示提示信息
+    function showToast(type, title, message) {
+        toastr.options = {
+            closeButton: true,
+            progressBar: true,
+            positionClass: "toast-top-right",
+            timeOut: 5000
+        };
+        
+        switch(type) {
+            case 'success':
+                toastr.success(message, title);
+                break;
+            case 'info':
+                toastr.info(message, title);
+                break;
+            case 'warning':
+                toastr.warning(message, title);
+                break;
+            case 'error':
+                toastr.error(message, title);
+                break;
+        }
+    }
+});
+</script>
+{% endblock %} 

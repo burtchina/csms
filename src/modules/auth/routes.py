@@ -17,7 +17,7 @@ def login():
     from src.modules.auth.models import User
     
     if current_user.is_authenticated:
-        return redirect(url_for('dashboard.index'))
+        return redirect(url_for('dashboard'))
         
     if request.method == 'POST':
         username = request.form.get('username')
@@ -31,7 +31,7 @@ def login():
             login_user(user, remember=remember)
             next_page = request.args.get('next')
             flash('登录成功！', 'success')
-            return redirect(next_page or url_for('dashboard.index'))
+            return redirect(next_page or url_for('dashboard'))
         else:
             flash('用户名或密码错误', 'danger')
             
@@ -43,7 +43,7 @@ def login():
 def logout():
     logout_user()
     flash('您已成功退出登录', 'success')
-    return redirect(url_for('dashboard.index'))
+    return redirect(url_for('dashboard'))
 
 # 注册路由
 @auth_bp.route('/register', methods=['GET', 'POST'])
@@ -52,7 +52,7 @@ def register():
     from src.core.db import db
     
     if current_user.is_authenticated:
-        return redirect(url_for('dashboard.index'))
+        return redirect(url_for('dashboard'))
         
     if request.method == 'POST':
         username = request.form.get('username')
