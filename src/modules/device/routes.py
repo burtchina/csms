@@ -403,3 +403,21 @@ def api_test_connection(device_id):
             'status': 'error',
             'message': f'测试连接失败: {str(e)}'
         }), 500
+
+# 添加新的全局API路由，供维护模块使用
+@device_bp.route('/api/devices')
+def api_devices():
+    """设备列表API - 用于维护模块选择设备"""
+    try:
+        devices = Device.query.order_by(Device.name).all()
+        return jsonify([
+            {
+                'id': device.id,
+                'name': device.name,
+                'device_code': device.device_code,
+                'type': device.type.name if device.type else '未分类',
+                'status': device.status
+            } for device in devices
+        ])
+    except Exception as e:
+        return jsonify([]), 500

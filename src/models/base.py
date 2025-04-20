@@ -2,7 +2,8 @@
 # -*- coding: utf-8 -*-
 
 """
-基础模型类 - 提供所有模型共享的基本功能
+基础模型
+为所有模型提供共享属性
 """
 
 from datetime import datetime
@@ -10,7 +11,7 @@ from src.core.db import db
 
 class BaseModel(db.Model):
     __table_args__ = {'extend_existing': True}
-    """基础模型类，提供所有模型共享的功能"""
+    """基础模型类，提供共享属性"""
     __abstract__ = True  # 标记为抽象类，不会创建数据库表
     
     created_at = db.Column(db.DateTime, default=datetime.utcnow)

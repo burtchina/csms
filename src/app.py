@@ -33,7 +33,7 @@ base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(base_dir)
 logger.debug(f"项目根目录: {base_dir}")
 
-from flask import Flask, render_template, redirect, url_for, request, send_from_directory
+from flask import Flask, render_template, redirect, url_for, request, send_from_directory, jsonify
 from flask_login import current_user, login_required
 from functools import wraps
 
@@ -82,6 +82,9 @@ def create_app(config_name=None):
     # 导入并使用models
     with app.app_context():
         from src.modules.auth.models import User
+        from src.models.device import Device, DeviceType
+        from src.models.maintenance import MaintenanceRecord
+        
         @login_manager.user_loader
         def load_user(user_id):
             """加载用户的回调函数"""
@@ -146,6 +149,40 @@ def create_app(config_name=None):
         if current_user.is_authenticated:
             return redirect(url_for('dashboard'))
         return render_template('index.html')
+    
+    # 设备API路由
+    @app.route('/devices/api/devices')
+    @login_required
+    def get_devices_api():
+        """全局设备API路由，提供设备列表数据"""
+        try:
+            from src.models.device import Device
+            devices = Device.query.all()
+            
+            data = []
+            for device in devices:
+                device_data = {
+                    'id': device.id,
+                    'name': device.name,
+                    'type': str(device.type) if hasattr(device, 'type') else '',
+                    'status': device.status if hasattr(device, 'status') else ''
+                }
+                data.append(device_data)
+            
+            return jsonify({
+                'status': 'success',
+                'message': '获取设备列表成功',
+                'data': data
+            })
+        
+        except Exception as e:
+            logger.error(f"获取设备列表出错: {str(e)}")
+            import traceback
+            logger.error(traceback.format_exc())
+            return jsonify({
+                'status': 'error',
+                'message': f'获取设备列表失败: {str(e)}'
+            }), 500
     
     @app.route('/dashboard')
     def dashboard():

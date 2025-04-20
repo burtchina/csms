@@ -1,0 +1,522 @@
+{% extends 'base.html' %}
+
+{% block title %}故障管理 - 校园安全管理系统{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+  <div class="row">
+    <div class="col-12">
+      <div class="card shadow-sm">
+        <div class="card-header">
+          <h5 class="mb-0">故障管理</h5>
+        </div>
+        <div class="card-body">
+          <div class="d-flex justify-content-between mb-3">
+            <div>
+              <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addFaultModal">
+                <i class="fas fa-plus"></i> 添加故障
+              </button>
+            </div>
+            <div class="d-flex">
+              <select id="statusFilter" class="form-select me-2">
+                <option value="">全部状态</option>
+                <option value="open">未处理</option>
+                <option value="in_progress">处理中</option>
+                <option value="resolved">已解决</option>
+              </select>
+              <select id="severityFilter" class="form-select me-2">
+                <option value="">全部严重程度</option>
+                <option value="low">低</option>
+                <option value="medium">中</option>
+                <option value="high">高</option>
+                <option value="critical">严重</option>
+              </select>
+              <button id="filterButton" class="btn btn-outline-secondary">
+                <i class="fas fa-filter"></i> 筛选
+              </button>
+            </div>
+          </div>
+          
+          <div class="table-responsive">
+            <table class="table table-striped table-hover">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>设备</th>
+                  <th>故障类型</th>
+                  <th>严重程度</th>
+                  <th>状态</th>
+                  <th>创建时间</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody id="faultTableBody">
+                <!-- 数据将通过JavaScript动态加载 -->
+                <tr>
+                  <td colspan="7" class="text-center">正在加载数据...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          
+          <div id="noDataMessage" class="alert alert-info text-center d-none">
+            暂无故障记录
+          </div>
+          
+          <div id="errorMessage" class="alert alert-danger text-center d-none">
+            加载故障数据时出错
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 添加故障模态框 -->
+<div class="modal fade" id="addFaultModal" tabindex="-1" aria-labelledby="addFaultModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="addFaultModalLabel">添加故障记录</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="addFaultForm">
+          <div class="mb-3">
+            <label for="deviceId" class="form-label">设备</label>
+            <select id="deviceId" class="form-select" required>
+              <option value="">请选择设备</option>
+              <!-- 设备选项将通过JavaScript动态加载 -->
+            </select>
+          </div>
+          <div class="mb-3">
+            <label for="faultType" class="form-label">故障类型</label>
+            <select id="faultType" class="form-select" required>
+              <option value="">请选择故障类型</option>
+              <option value="network">网络连接</option>
+              <option value="hardware">硬件故障</option>
+              <option value="software">软件错误</option>
+              <option value="power">电源问题</option>
+              <option value="other">其他</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label for="severity" class="form-label">严重程度</label>
+            <select id="severity" class="form-select" required>
+              <option value="">请选择严重程度</option>
+              <option value="low">低</option>
+              <option value="medium">中</option>
+              <option value="high">高</option>
+              <option value="critical">严重</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label for="description" class="form-label">描述</label>
+            <textarea id="description" class="form-control" rows="3" required></textarea>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+        <button type="button" class="btn btn-primary" id="submitFault">提交</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 查看/编辑故障模态框 -->
+<div class="modal fade" id="viewFaultModal" tabindex="-1" aria-labelledby="viewFaultModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="viewFaultModalLabel">故障详情</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="editFaultForm">
+          <input type="hidden" id="editFaultId">
+          <div class="mb-3">
+            <label for="viewDeviceName" class="form-label">设备</label>
+            <input type="text" class="form-control" id="viewDeviceName" readonly>
+          </div>
+          <div class="mb-3">
+            <label for="editFaultType" class="form-label">故障类型</label>
+            <select id="editFaultType" class="form-select">
+              <option value="network">网络连接</option>
+              <option value="hardware">硬件故障</option>
+              <option value="software">软件错误</option>
+              <option value="power">电源问题</option>
+              <option value="other">其他</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label for="editSeverity" class="form-label">严重程度</label>
+            <select id="editSeverity" class="form-select">
+              <option value="low">低</option>
+              <option value="medium">中</option>
+              <option value="high">高</option>
+              <option value="critical">严重</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label for="editStatus" class="form-label">状态</label>
+            <select id="editStatus" class="form-select">
+              <option value="open">未处理</option>
+              <option value="in_progress">处理中</option>
+              <option value="resolved">已解决</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label for="editDescription" class="form-label">描述</label>
+            <textarea id="editDescription" class="form-control" rows="3"></textarea>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">创建时间</label>
+            <p id="viewCreatedAt" class="form-control-plaintext"></p>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">最后更新</label>
+            <p id="viewUpdatedAt" class="form-control-plaintext"></p>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+        <button type="button" class="btn btn-primary" id="updateFault">更新</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 自定义JavaScript -->
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    // 加载故障列表
+    loadFaults();
+    
+    // 加载设备列表（用于添加故障时选择）
+    loadDevices();
+    
+    // 筛选按钮点击事件
+    document.getElementById('filterButton').addEventListener('click', loadFaults);
+    
+    // 提交故障按钮点击事件
+    document.getElementById('submitFault').addEventListener('click', submitFault);
+    
+    // 更新故障按钮点击事件
+    document.getElementById('updateFault').addEventListener('click', updateFault);
+  });
+  
+  // 加载故障列表
+  function loadFaults() {
+    const statusFilter = document.getElementById('statusFilter').value;
+    const severityFilter = document.getElementById('severityFilter').value;
+    
+    let url = '/fault/api/faults';
+    let params = [];
+    
+    if (statusFilter) {
+      params.push(`status=${statusFilter}`);
+    }
+    
+    if (severityFilter) {
+      params.push(`severity=${severityFilter}`);
+    }
+    
+    if (params.length > 0) {
+      url += '?' + params.join('&');
+    }
+    
+    fetch(url)
+      .then(response => response.json())
+      .then(data => {
+        const tableBody = document.getElementById('faultTableBody');
+        const noDataMessage = document.getElementById('noDataMessage');
+        const errorMessage = document.getElementById('errorMessage');
+        
+        // 隐藏所有消息
+        noDataMessage.classList.add('d-none');
+        errorMessage.classList.add('d-none');
+        
+        if (data.status === 'success') {
+          if (data.data.length === 0) {
+            // 没有数据
+            tableBody.innerHTML = '';
+            noDataMessage.classList.remove('d-none');
+          } else {
+            // 渲染数据
+            let html = '';
+            data.data.forEach(fault => {
+              let severityBadge = '';
+              switch (fault.severity) {
+                case 'low':
+                  severityBadge = '<span class="badge bg-info">低</span>';
+                  break;
+                case 'medium':
+                  severityBadge = '<span class="badge bg-warning">中</span>';
+                  break;
+                case 'high':
+                  severityBadge = '<span class="badge bg-danger">高</span>';
+                  break;
+                case 'critical':
+                  severityBadge = '<span class="badge bg-dark">严重</span>';
+                  break;
+              }
+              
+              let statusBadge = '';
+              switch (fault.status) {
+                case 'open':
+                  statusBadge = '<span class="badge bg-secondary">未处理</span>';
+                  break;
+                case 'in_progress':
+                  statusBadge = '<span class="badge bg-primary">处理中</span>';
+                  break;
+                case 'resolved':
+                  statusBadge = '<span class="badge bg-success">已解决</span>';
+                  break;
+              }
+              
+              // 转换故障类型
+              let faultTypeText = '';
+              switch (fault.fault_type) {
+                case 'network':
+                  faultTypeText = '网络连接';
+                  break;
+                case 'hardware':
+                  faultTypeText = '硬件故障';
+                  break;
+                case 'software':
+                  faultTypeText = '软件错误';
+                  break;
+                case 'power':
+                  faultTypeText = '电源问题';
+                  break;
+                case 'other':
+                  faultTypeText = '其他';
+                  break;
+                default:
+                  faultTypeText = fault.fault_type;
+              }
+              
+              html += `
+                <tr>
+                  <td>${fault.id}</td>
+                  <td>${fault.device_name}</td>
+                  <td>${faultTypeText}</td>
+                  <td>${severityBadge}</td>
+                  <td>${statusBadge}</td>
+                  <td>${fault.created_at}</td>
+                  <td>
+                    <button class="btn btn-sm btn-outline-primary me-1" onclick="viewFault(${fault.id})">
+                      <i class="fas fa-eye"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="deleteFault(${fault.id})">
+                      <i class="fas fa-trash"></i>
+                    </button>
+                  </td>
+                </tr>
+              `;
+            });
+            
+            tableBody.innerHTML = html;
+          }
+        } else {
+          // 显示错误消息
+          errorMessage.textContent = data.message || '加载故障数据时出错';
+          errorMessage.classList.remove('d-none');
+          tableBody.innerHTML = '';
+        }
+      })
+      .catch(error => {
+        console.error('Error loading faults:', error);
+        const tableBody = document.getElementById('faultTableBody');
+        const errorMessage = document.getElementById('errorMessage');
+        
+        tableBody.innerHTML = '';
+        errorMessage.textContent = '加载故障数据时出错';
+        errorMessage.classList.remove('d-none');
+      });
+  }
+  
+  // 加载设备列表
+  function loadDevices() {
+    fetch('/devices/api/devices')
+      .then(response => response.json())
+      .then(data => {
+        const deviceSelect = document.getElementById('deviceId');
+        let html = '<option value="">请选择设备</option>';
+        
+        // 检查服务器返回的数据格式
+        const devices = data.data || data;
+        
+        devices.forEach(device => {
+          html += `<option value="${device.id}">${device.name}</option>`;
+        });
+        
+        deviceSelect.innerHTML = html;
+      })
+      .catch(error => {
+        console.error('Error loading devices:', error);
+      });
+  }
+  
+  // 提交故障
+  function submitFault() {
+    const deviceId = document.getElementById('deviceId').value;
+    const faultType = document.getElementById('faultType').value;
+    const severity = document.getElementById('severity').value;
+    const description = document.getElementById('description').value;
+    
+    // 表单验证
+    if (!deviceId || !faultType || !severity || !description) {
+      alert('请填写所有必填字段');
+      return;
+    }
+    
+    // 准备请求数据
+    const data = {
+      device_id: parseInt(deviceId),
+      fault_type: faultType,
+      severity: severity,
+      description: description
+    };
+    
+    // 发送请求
+    fetch('/fault/api/faults', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(data)
+    })
+      .then(response => response.json())
+      .then(result => {
+        if (result.status === 'success') {
+          // 关闭模态框
+          const modal = bootstrap.Modal.getInstance(document.getElementById('addFaultModal'));
+          modal.hide();
+          
+          // 重置表单
+          document.getElementById('addFaultForm').reset();
+          
+          // 重新加载故障列表
+          loadFaults();
+          
+          // 显示成功消息
+          alert('故障记录创建成功');
+        } else {
+          // 显示错误消息
+          alert(result.message || '创建故障记录失败');
+        }
+      })
+      .catch(error => {
+        console.error('Error creating fault:', error);
+        alert('创建故障记录时出错');
+      });
+  }
+  
+  // 查看故障
+  function viewFault(faultId) {
+    fetch(`/fault/api/faults/${faultId}`)
+      .then(response => response.json())
+      .then(data => {
+        if (data.status === 'success') {
+          const fault = data.data;
+          
+          // 填充表单
+          document.getElementById('editFaultId').value = fault.id;
+          document.getElementById('viewDeviceName').value = fault.device_name;
+          document.getElementById('editFaultType').value = fault.fault_type;
+          document.getElementById('editSeverity').value = fault.severity;
+          document.getElementById('editStatus').value = fault.status;
+          document.getElementById('editDescription').value = fault.description;
+          document.getElementById('viewCreatedAt').textContent = fault.created_at;
+          document.getElementById('viewUpdatedAt').textContent = fault.updated_at || '暂无更新';
+          
+          // 显示模态框
+          const modal = new bootstrap.Modal(document.getElementById('viewFaultModal'));
+          modal.show();
+        } else {
+          alert(data.message || '获取故障信息失败');
+        }
+      })
+      .catch(error => {
+        console.error('Error viewing fault:', error);
+        alert('获取故障信息时出错');
+      });
+  }
+  
+  // 更新故障
+  function updateFault() {
+    const faultId = document.getElementById('editFaultId').value;
+    const faultType = document.getElementById('editFaultType').value;
+    const severity = document.getElementById('editSeverity').value;
+    const status = document.getElementById('editStatus').value;
+    const description = document.getElementById('editDescription').value;
+    
+    // 准备请求数据
+    const data = {
+      fault_type: faultType,
+      severity: severity,
+      status: status,
+      description: description
+    };
+    
+    // 发送请求
+    fetch(`/fault/api/faults/${faultId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(data)
+    })
+      .then(response => response.json())
+      .then(result => {
+        if (result.status === 'success') {
+          // 关闭模态框
+          const modal = bootstrap.Modal.getInstance(document.getElementById('viewFaultModal'));
+          modal.hide();
+          
+          // 重新加载故障列表
+          loadFaults();
+          
+          // 显示成功消息
+          alert('故障记录更新成功');
+        } else {
+          // 显示错误消息
+          alert(result.message || '更新故障记录失败');
+        }
+      })
+      .catch(error => {
+        console.error('Error updating fault:', error);
+        alert('更新故障记录时出错');
+      });
+  }
+  
+  // 删除故障
+  function deleteFault(faultId) {
+    if (confirm('确定要删除此故障记录吗？此操作不可恢复。')) {
+      fetch(`/fault/api/faults/${faultId}`, {
+        method: 'DELETE'
+      })
+        .then(response => response.json())
+        .then(result => {
+          if (result.status === 'success') {
+            // 重新加载故障列表
+            loadFaults();
+            
+            // 显示成功消息
+            alert('故障记录删除成功');
+          } else {
+            // 显示错误消息
+            alert(result.message || '删除故障记录失败');
+          }
+        })
+        .catch(error => {
+          console.error('Error deleting fault:', error);
+          alert('删除故障记录时出错');
+        });
+    }
+  }
+</script>
+{% endblock %} 
