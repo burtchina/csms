@@ -213,15 +213,11 @@ def get_uptime(device_id: int, connection: Any) -> str:
     """
     # 检查是否是模拟连接
     if isinstance(connection, dict) and connection.get('simulation', False):
-        # 返回更合理的随机运行时间
-        days = random.randint(0, 7)  # 最多7天
+        # 返回随机运行时间，不限制天数上限
+        days = random.randint(1, 365)  # 允许显示真实的运行天数
         hours = random.randint(0, 23)
         minutes = random.randint(0, 59)
-        
-        if days > 0:
-            return f"{days} days, {hours} hours, {minutes} minutes"
-        else:
-            return f"{hours} hours, {minutes} minutes"
+        return f"{days} days, {hours} hours, {minutes} minutes"
     
     try:
         output = connection.send_command('display version')
