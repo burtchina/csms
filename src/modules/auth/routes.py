@@ -28,6 +28,12 @@ def login():
         # 这里我们创建一个临时用户
         user = User.query.filter_by(username=username).first()
         if user and user.check_password(password):
+            # 更新最后登录时间
+            from datetime import datetime
+            from src.core.db import db
+            user.last_login = datetime.now()
+            db.session.commit()
+            
             login_user(user, remember=remember)
             next_page = request.args.get('next')
             flash('登录成功！', 'success')
@@ -82,4 +88,64 @@ def register():
 @auth_bp.route('/reset_password', methods=['GET', 'POST'])
 def reset_password():
     # TODO: 实现密码重置逻辑
-    return render_template('auth/reset_password.html') 
+    return render_template('auth/reset_password.html')
+
+# 个人信息路由
+@auth_bp.route('/profile', methods=['GET', 'POST'])
+@login_required
+def profile():
+    if request.method == 'POST':
+        # 获取表单数据
+        display_name = request.form.get('display_name')
+        email = request.form.get('email')
+        phone = request.form.get('phone')
+        
+        # 更新用户信息
+        if current_user.email != email:
+            from src.modules.auth.models import User
+            # 检查邮箱是否已被使用
+            if User.query.filter_by(email=email).first() and User.query.filter_by(email=email).first().id != current_user.id:
+                flash('该邮箱已被使用', 'danger')
+                return redirect(url_for('auth.profile'))
+                
+        # 更新用户信息
+        from src.core.db import db
+        current_user.display_name = display_name
+        current_user.email = email
+        current_user.phone = phone
+        db.session.commit()
+        
+        flash('个人信息已更新', 'success')
+        return redirect(url_for('auth.profile'))
+        
+    return render_template('auth/profile.html')
+
+# 账号设置路由
+@auth_bp.route('/settings', methods=['GET', 'POST'])
+@login_required
+def settings():
+    if request.method == 'POST':
+        # 修改密码
+        current_password = request.form.get('current_password')
+        new_password = request.form.get('new_password')
+        confirm_password = request.form.get('confirm_password')
+        
+        # 验证当前密码
+        if not current_user.check_password(current_password):
+            flash('当前密码不正确', 'danger')
+            return redirect(url_for('auth.settings'))
+            
+        # 验证新密码
+        if new_password != confirm_password:
+            flash('两次输入的新密码不一致', 'danger')
+            return redirect(url_for('auth.settings'))
+            
+        # 更新密码
+        current_user.set_password(new_password)
+        from src.core.db import db
+        db.session.commit()
+        
+        flash('密码已更新', 'success')
+        return redirect(url_for('auth.settings'))
+        
+    return render_template('auth/settings.html') 

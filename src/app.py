@@ -36,6 +36,7 @@ logger.debug(f"项目根目录: {base_dir}")
 from flask import Flask, render_template, redirect, url_for, request, send_from_directory, jsonify
 from flask_login import current_user, login_required
 from functools import wraps
+from flask_migrate import Migrate
 
 def create_app(config_name=None):
     """
@@ -72,6 +73,7 @@ def create_app(config_name=None):
     # 初始化扩展
     from src.core.db import db, login_manager
     db.init_app(app)
+    migrate = Migrate(app, db)
     login_manager.init_app(app)
     
     # 登录管理器初始化

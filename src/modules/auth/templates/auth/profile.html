@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block title %}个人信息 - 校园安全管理系统{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            <div class="card shadow">
+                <div class="card-header bg-white py-3">
+                    <h5 class="mb-0">
+                        <i class="fas fa-user me-2"></i>个人信息
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('auth.profile') }}">
+                        <div class="row mb-4">
+                            <div class="col-md-4 text-center mb-4 mb-md-0">
+                                <div class="user-avatar-large mx-auto">
+                                    <div class="user-avatar-circle-lg">
+                                        <span class="avatar-text-lg">{{ current_user.username[0]|upper }}</span>
+                                    </div>
+                                </div>
+                                <h5 class="mt-3">{{ current_user.display_name or current_user.username }}</h5>
+                                <span class="badge bg-primary">{{ current_user.role or ('管理员' if current_user.is_admin else '用户') }}</span>
+                            </div>
+                            <div class="col-md-8">
+                                <div class="mb-3">
+                                    <label for="username" class="form-label">用户名</label>
+                                    <input type="text" class="form-control" id="username" value="{{ current_user.username }}" disabled>
+                                    <div class="form-text">用户名不可修改</div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="display_name" class="form-label">显示名称</label>
+                                    <input type="text" class="form-control" id="display_name" name="display_name" value="{{ current_user.display_name or '' }}">
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="email" class="form-label">电子邮箱</label>
+                                    <input type="email" class="form-control" id="email" name="email" value="{{ current_user.email or '' }}" required>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="phone" class="form-label">联系电话</label>
+                                    <input type="tel" class="form-control" id="phone" name="phone" value="{{ current_user.phone or '' }}">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <hr>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">账户创建时间</label>
+                            <p>{{ current_user.created_at.strftime('%Y-%m-%d %H:%M:%S') if current_user.created_at else '未知' }}</p>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">上次登录时间</label>
+                            <p>{{ current_user.last_login.strftime('%Y-%m-%d %H:%M:%S') if current_user.last_login else '未知' }}</p>
+                        </div>
+                        
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-1"></i>保存修改
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

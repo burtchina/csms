@@ -134,8 +134,8 @@
                                     </div>
                                 </div></li>
                                 <li><hr class="dropdown-divider"></li>
-                                <li><a class="dropdown-item" href="#"><i class="fas fa-user me-2"></i>个人信息</a></li>
-                                <li><a class="dropdown-item" href="#"><i class="fas fa-cog me-2"></i>账号设置</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('auth.profile') }}"><i class="fas fa-user me-2"></i>个人信息</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('auth.settings') }}"><i class="fas fa-cog me-2"></i>账号设置</a></li>
                                 <li><hr class="dropdown-divider"></li>
                                 <li><a class="dropdown-item" href="{{ url_for('auth.logout') }}"><i class="fas fa-sign-out-alt me-2"></i>退出登录</a></li>
                             </ul>

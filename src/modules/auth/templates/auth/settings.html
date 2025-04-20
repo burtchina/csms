@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+
+{% block title %}账号设置 - 校园安全管理系统{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            <div class="card shadow">
+                <div class="card-header bg-white py-3">
+                    <h5 class="mb-0">
+                        <i class="fas fa-cog me-2"></i>账号设置
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('auth.settings') }}">
+                        <div class="mb-4">
+                            <h5 class="mb-3">修改密码</h5>
+                            
+                            <div class="mb-3">
+                                <label for="current_password" class="form-label">当前密码</label>
+                                <input type="password" class="form-control" id="current_password" name="current_password" required>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="new_password" class="form-label">新密码</label>
+                                <input type="password" class="form-control" id="new_password" name="new_password" required>
+                                <div class="form-text">密码长度至少为8个字符</div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="confirm_password" class="form-label">确认新密码</label>
+                                <input type="password" class="form-control" id="confirm_password" name="confirm_password" required>
+                            </div>
+                        </div>
+                        
+                        <hr>
+                        
+                        <h5 class="mb-3">安全设置</h5>
+                        
+                        <div class="mb-3">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="enable_2fa" name="enable_2fa">
+                                <label class="form-check-label" for="enable_2fa">启用两步验证</label>
+                            </div>
+                            <div class="form-text">通过手机验证码或认证器应用增强账号安全性（功能开发中）</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="login_notification" name="login_notification">
+                                <label class="form-check-label" for="login_notification">登录通知</label>
+                            </div>
+                            <div class="form-text">当账号在新设备登录时发送邮件通知（功能开发中）</div>
+                        </div>
+                        
+                        <hr>
+                        
+                        <h5 class="mb-3">危险操作</h5>
+                        
+                        <div class="mb-3">
+                            <a href="#" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deactivateModal">
+                                <i class="fas fa-user-slash me-1"></i>停用账号
+                            </a>
+                            <div class="form-text">暂时停用您的账号（功能开发中）</div>
+                        </div>
+                        
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-1"></i>保存设置
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 停用账号确认模态框 -->
+<div class="modal fade" id="deactivateModal" tabindex="-1" aria-labelledby="deactivateModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deactivateModalLabel">确认停用账号</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>停用账号后，您将无法登录系统，所有与您账号相关的服务将暂停。</p>
+                <p>您可以随时联系管理员重新激活账号。</p>
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle me-2"></i>此操作不可自行恢复，请谨慎操作！
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-danger">确认停用</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 
