@@ -168,50 +168,66 @@ def edit(device_id):
     device_types = DeviceType.query.all()
     
     if request.method == 'POST':
-        # 获取表单数据
-        device.name = request.form.get('name')
-        device.device_code = request.form.get('device_code')
-        device.type_id = request.form.get('type_id')
-        device.location = request.form.get('location')
-        device.ip_address = request.form.get('ip_address')
-        device.mac_address = request.form.get('mac_address')
-        device.username = request.form.get('username')
-        # 只在密码有输入时更新密码（留空则保持原密码）
-        if request.form.get('password'):
-            device.password = request.form.get('password')
-        device.status = request.form.get('status')
-        device.manufacturer = request.form.get('manufacturer')
-        device.model = request.form.get('model')
-        device.serial_number = request.form.get('serial_number')
-        
-        # 日期处理
-        if request.form.get('purchase_date'):
-            try:
-                device.purchase_date = datetime.strptime(request.form.get('purchase_date'), '%Y-%m-%d').date()
-            except ValueError:
-                flash('购买日期格式不正确', 'danger')
-                return render_template('device/edit.html', device=device, device_types=device_types)
-        
-        device.warranty_period = request.form.get('warranty_period')
-        device.notes = request.form.get('notes')
+        # 记录原始位置，用于调试
+        original_location = device.location
         
         # 验证必填字段
-        if not device.name or not device.device_code:
+        name = request.form.get('name')
+        device_code = request.form.get('device_code')
+        
+        if not name or not device_code:
             flash('设备名称和设备编码为必填项', 'danger')
             return render_template('device/edit.html', device=device, device_types=device_types)
         
         # 检查设备编码是否重复（排除自身）
         duplicate = Device.query.filter(
-            Device.device_code == device.device_code,
+            Device.device_code == device_code,
             Device.id != device_id
         ).first()
         
         if duplicate:
             flash('设备编码已存在', 'danger')
             return render_template('device/edit.html', device=device, device_types=device_types)
+            
+        # 收集所有要更新的字段
+        update_data = {
+            'name': name,
+            'device_code': device_code,
+            'type_id': request.form.get('type_id') or None,
+            'location': request.form.get('location'),
+            'ip_address': request.form.get('ip_address'),
+            'mac_address': request.form.get('mac_address'),
+            'username': request.form.get('username'),
+            'manufacturer': request.form.get('manufacturer'),
+            'model': request.form.get('model'),
+            'serial_number': request.form.get('serial_number'),
+            'warranty_period': request.form.get('warranty_period'),
+            'notes': request.form.get('notes'),
+            'status': request.form.get('status')
+        }
+        
+        # 处理密码（只在有输入时更新）
+        if request.form.get('password'):
+            update_data['password'] = request.form.get('password')
+        
+        # 处理日期
+        if request.form.get('purchase_date'):
+            try:
+                purchase_date = datetime.strptime(request.form.get('purchase_date'), '%Y-%m-%d').date()
+                update_data['purchase_date'] = purchase_date
+            except ValueError:
+                flash('购买日期格式不正确', 'danger')
+                return render_template('device/edit.html', device=device, device_types=device_types)
         
         try:
+            # 打印调试信息
+            print(f"更新设备位置: 原位置={original_location}, 新位置={update_data['location']}")
+            
+            # 使用SQL更新语句直接更新设备记录
+            query = db.session.query(Device).filter(Device.id == device_id)
+            query.update(update_data)
             db.session.commit()
+            
             flash('设备更新成功', 'success')
             return redirect(url_for('device.index'))
         except Exception as e:
@@ -229,14 +245,33 @@ def view(device_id):
     return render_template('device/view.html', device=device)
 
 # 删除设备
+# @device_bp.route('/delete/<int:device_id>', methods=['POST'])
+# @login_required
+# def delete(device_id):
+#     device = Device.query.get_or_404(device_id)
+    
+#     try:
+#         db.session.delete(device)
+#         db.session.commit()
+#         flash('设备已删除', 'success')
+#     except Exception as e:
+#         db.session.rollback()
+#         flash(f'删除设备失败: {str(e)}', 'danger')
+    
+#     return redirect(url_for('device.index'))
 @device_bp.route('/delete/<int:device_id>', methods=['POST'])
 @login_required
 def delete(device_id):
-    device = Device.query.get_or_404(device_id)
-    
     try:
-        db.session.delete(device)
+        # 直接使用SQL语句删除设备及相关记录
+        # 首先删除外键引用
+        db.session.execute(f"DELETE FROM performance_data WHERE device_id = {device_id}")
+        db.session.execute(f"DELETE FROM performance_records WHERE device_id = {device_id}")
+        db.session.execute(f"DELETE FROM thresholds WHERE device_id = {device_id}")
+        # 最后删除设备记录
+        db.session.execute(f"DELETE FROM devices WHERE id = {device_id}")
         db.session.commit()
+        
         flash('设备已删除', 'success')
     except Exception as e:
         db.session.rollback()

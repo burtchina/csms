@@ -241,7 +241,7 @@ class EnhancedMonitorService:
             return {'status': 'error', 'message': f'获取历史数据出错: {str(e)}'}
     
     @staticmethod
-    def save_performance_data(device_id: int, data: Dict) -> Optional[PerformanceData]:
+    def save_performance_data(device_id: int, data: Dict) -> Optional[Dict]:
         """
         保存性能数据到数据库
         
@@ -250,24 +250,38 @@ class EnhancedMonitorService:
             data: 性能数据
             
         Returns:
-            保存的性能数据记录，失败时返回None
+            保存的性能数据记录ID，失败时返回None
         """
         try:
-            # 创建性能数据记录
-            perf_data = PerformanceData(
-                device_id=device_id,
-                cpu_usage=data.get('cpu_usage', 0),
-                memory_usage=data.get('memory_usage', 0),
-                bandwidth_usage=data.get('bandwidth_usage', 0),
-                uptime=data.get('uptime', 'Unknown'),
-                data_source='enhanced_monitor'
-            )
+            # 准备数据
+            cpu_usage = data.get('cpu_usage', 0)
+            memory_usage = data.get('memory_usage', 0)
+            bandwidth_usage = data.get('bandwidth_usage', 0)
+            uptime = data.get('uptime', 'Unknown')
+            timestamp = datetime.now()
             
-            db.session.add(perf_data)
+            # 使用SQL语句直接插入数据
+            sql = """
+            INSERT INTO performance_data 
+            (device_id, cpu_usage, memory_usage, bandwidth_usage, uptime, timestamp, created_at, updated_at) 
+            VALUES (:device_id, :cpu_usage, :memory_usage, :bandwidth_usage, :uptime, :timestamp, :created_at, :updated_at)
+            """
+            
+            result = db.session.execute(sql, {
+                'device_id': device_id,
+                'cpu_usage': cpu_usage,
+                'memory_usage': memory_usage,
+                'bandwidth_usage': bandwidth_usage,
+                'uptime': uptime,
+                'timestamp': timestamp,
+                'created_at': timestamp,
+                'updated_at': timestamp
+            })
+            
             db.session.commit()
             
-            logger.debug(f"已保存设备 {device_id} 的性能数据: CPU={data.get('cpu_usage')}%, MEM={data.get('memory_usage')}%")
-            return perf_data
+            logger.debug(f"已保存设备 {device_id} 的性能数据: CPU={cpu_usage}%, MEM={memory_usage}%")
+            return {'id': result.lastrowid, 'device_id': device_id, 'timestamp': timestamp}
             
         except Exception as e:
             logger.error(f"保存性能数据失败: {str(e)}")
@@ -367,12 +381,16 @@ class EnhancedMonitorService:
         with app.app_context():
             try:
                 # 获取设备信息
-                device = Device.query.get(device_id)
-                if not device:
+                device_info = db.session.execute(
+                    f"SELECT id, name, ip_address, username, password, port FROM devices WHERE id = {device_id}"
+                ).fetchone()
+                
+                if not device_info:
                     logger.error(f"设备不存在: ID={device_id}")
                     return
                     
-                logger.info(f"启动设备 {device.name} (ID:{device_id}) 的性能监控线程")
+                device_name = device_info.name
+                logger.info(f"启动设备 {device_name} (ID:{device_id}) 的性能监控线程")
                 
                 # 监控间隔
                 cpu_memory_interval = 10  # 默认10秒
@@ -385,10 +403,10 @@ class EnhancedMonitorService:
                 last_save_db_time = 0
                 
                 # 设备连接信息
-                device_ip = device.ip_address
-                device_username = device.username or 'admin'
-                device_password = device.password or 'admin123'
-                device_port = device.port or 22
+                device_ip = device_info.ip_address
+                device_username = device_info.username or 'admin'
+                device_password = device_info.password or 'admin123'
+                device_port = device_info.port or 22
                 
                 logger.debug(f"设备连接信息: IP={device_ip}, 用户名={device_username}, 端口={device_port}")
                 
@@ -428,7 +446,7 @@ class EnhancedMonitorService:
                             # 更新时间戳
                             last_cpu_memory_time = current_time
                             
-                            logger.debug(f"设备 {device.name} 数据更新: CPU={data.get('cpu_usage')}%, MEM={data.get('memory_usage')}%")
+                            logger.debug(f"设备 {device_name} 数据更新: CPU={data.get('cpu_usage')}%, MEM={data.get('memory_usage')}%")
                             
                         # 保存到数据库（每save_db_interval秒）
                         if current_time - last_save_db_time >= save_db_interval:
@@ -443,10 +461,10 @@ class EnhancedMonitorService:
                         time.sleep(2)
                         
                     except Exception as e:
-                        logger.error(f"监控设备 {device.name} 出错: {str(e)}")
+                        logger.error(f"监控设备 {device_name} 出错: {str(e)}")
                         time.sleep(30)  # 出错后等待30秒再重试
                         
-                logger.info(f"设备 {device.name} 监控线程已停止")
+                logger.info(f"设备 {device_name} 监控线程已停止")
                 
             except Exception as e:
                 logger.error(f"监控线程异常: {str(e)}")
@@ -471,12 +489,16 @@ class EnhancedMonitorService:
         with app.app_context():
             try:
                 # 获取设备信息
-                device = Device.query.get(device_id)
-                if not device:
+                device_info = db.session.execute(
+                    f"SELECT id, name FROM devices WHERE id = {device_id}"
+                ).fetchone()
+                
+                if not device_info:
                     logger.error(f"设备不存在: ID={device_id}")
                     return
                     
-                logger.info(f"启动设备 {device.name} (ID:{device_id}) 的保活线程")
+                device_name = device_info.name
+                logger.info(f"启动设备 {device_name} (ID:{device_id}) 的保活线程")
                 
                 # 保活间隔
                 keepalive_interval = 60  # 默认60秒
@@ -488,18 +510,18 @@ class EnhancedMonitorService:
                         result = send_command(device_id, "display clock")
                         
                         if result['status'] == 'success':
-                            logger.debug(f"设备 {device.name} 保活成功: {result['output']}")
+                            logger.debug(f"设备 {device_name} 保活成功: {result['output']}")
                         else:
-                            logger.warning(f"设备 {device.name} 保活失败: {result['message']}")
+                            logger.warning(f"设备 {device_name} 保活失败: {result['message']}")
                             
                         # 休眠一段时间
                         time.sleep(keepalive_interval)
                         
                     except Exception as e:
-                        logger.error(f"保活设备 {device.name} 出错: {str(e)}")
+                        logger.error(f"保活设备 {device_name} 出错: {str(e)}")
                         time.sleep(30)  # 出错后等待30秒再重试
                         
-                logger.info(f"设备 {device.name} 保活线程已停止")
+                logger.info(f"设备 {device_name} 保活线程已停止")
                 
             except Exception as e:
                 logger.error(f"保活线程异常: {str(e)}") 
