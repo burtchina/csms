@@ -1,0 +1,307 @@
+{% extends "base.html" %}
+
+{% block title %}策略模板管理 | 校园安全管理系统{% endblock %}
+
+{% block head %}
+<style>
+    .template-card {
+        transition: all 0.3s ease;
+    }
+    .template-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    .template-actions {
+        visibility: hidden;
+        opacity: 0;
+        transition: all 0.3s ease;
+    }
+    .template-card:hover .template-actions {
+        visibility: visible;
+        opacity: 1;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 text-gray-800">策略模板管理</h1>
+        <div>
+            <a href="{{ url_for('policy.create_template') }}" class="btn btn-primary">
+                <i class="fas fa-plus me-1"></i>创建模板
+            </a>
+            <a href="{{ url_for('policy.index') }}" class="btn btn-outline-secondary ms-2">
+                <i class="fas fa-arrow-left me-1"></i>返回策略列表
+            </a>
+        </div>
+    </div>
+
+    <!-- 说明卡片 -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <div class="d-flex">
+                <div class="me-3">
+                    <i class="fas fa-info-circle fa-2x text-info"></i>
+                </div>
+                <div>
+                    <h5 class="card-title">关于策略模板</h5>
+                    <p class="card-text">
+                        策略模板可以帮助您快速创建常用的安全策略配置。系统模板由管理员维护，提供标准配置；用户模板由您创建，可根据需求自定义。
+                        创建新策略时，可以选择模板作为基础配置，然后根据实际需求进行调整。
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 系统模板 -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header py-3 bg-light">
+            <h6 class="m-0 font-weight-bold">系统模板 <span class="badge bg-secondary">{{ system_templates|length }}</span></h6>
+        </div>
+        <div class="card-body">
+            {% if system_templates %}
+            <div class="row">
+                {% for template in system_templates %}
+                <div class="col-md-4 mb-4">
+                    <div class="card h-100 template-card">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <h5 class="card-title">{{ template.name }}</h5>
+                                <span class="badge bg-info">{{ template.type }}</span>
+                            </div>
+                            <p class="card-text text-muted">{{ template.description or '无描述' }}</p>
+                            <div class="d-flex align-items-center mt-3">
+                                <span class="badge bg-secondary me-2">系统模板</span>
+                                <small class="text-muted">创建于: {{ template.created_at.strftime('%Y-%m-%d') }}</small>
+                            </div>
+                        </div>
+                        <div class="card-footer bg-transparent">
+                            <div class="d-flex justify-content-between">
+                                <button type="button" class="btn btn-sm btn-outline-primary view-template" 
+                                        data-bs-toggle="modal" 
+                                        data-bs-target="#viewTemplateModal"
+                                        data-template-id="{{ template.id }}">
+                                    <i class="fas fa-eye me-1"></i>查看
+                                </button>
+                                <div class="template-actions">
+                                    {% if current_user.is_admin %}
+                                    <a href="{{ url_for('policy.edit_template', id=template.id) }}" class="btn btn-sm btn-outline-secondary">
+                                        <i class="fas fa-edit me-1"></i>编辑
+                                    </a>
+                                    {% endif %}
+                                    <a href="{{ url_for('policy.create') }}?template_id={{ template.id }}" class="btn btn-sm btn-success">
+                                        <i class="fas fa-play me-1"></i>使用
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-center py-5">
+                <div class="mb-3">
+                    <i class="fas fa-file-alt fa-3x text-muted"></i>
+                </div>
+                <h5 class="text-muted">暂无系统模板</h5>
+                <p class="text-muted small">系统管理员可以创建系统模板</p>
+                {% if current_user.is_admin %}
+                <a href="{{ url_for('policy.create_template') }}" class="btn btn-primary mt-2">
+                    <i class="fas fa-plus me-1"></i>创建系统模板
+                </a>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- 用户模板 -->
+    <div class="card shadow-sm">
+        <div class="card-header py-3 bg-light">
+            <h6 class="m-0 font-weight-bold">用户模板 <span class="badge bg-secondary">{{ user_templates|length }}</span></h6>
+        </div>
+        <div class="card-body">
+            {% if user_templates %}
+            <div class="row">
+                {% for template in user_templates %}
+                <div class="col-md-4 mb-4">
+                    <div class="card h-100 template-card">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <h5 class="card-title">{{ template.name }}</h5>
+                                <span class="badge bg-info">{{ template.type }}</span>
+                            </div>
+                            <p class="card-text text-muted">{{ template.description or '无描述' }}</p>
+                            <div class="d-flex align-items-center mt-3">
+                                <small class="text-muted">创建者: {{ template.creator.username if template.creator else '未知' }}</small>
+                                <small class="text-muted ms-3">创建于: {{ template.created_at.strftime('%Y-%m-%d') }}</small>
+                            </div>
+                        </div>
+                        <div class="card-footer bg-transparent">
+                            <div class="d-flex justify-content-between">
+                                <button type="button" class="btn btn-sm btn-outline-primary view-template" 
+                                        data-bs-toggle="modal" 
+                                        data-bs-target="#viewTemplateModal"
+                                        data-template-id="{{ template.id }}">
+                                    <i class="fas fa-eye me-1"></i>查看
+                                </button>
+                                <div class="template-actions">
+                                    {% if current_user.is_admin or template.created_by == current_user.id %}
+                                    <a href="{{ url_for('policy.edit_template', id=template.id) }}" class="btn btn-sm btn-outline-secondary">
+                                        <i class="fas fa-edit me-1"></i>编辑
+                                    </a>
+                                    <button type="button" class="btn btn-sm btn-outline-danger" 
+                                            data-bs-toggle="modal" 
+                                            data-bs-target="#deleteTemplateModal" 
+                                            data-template-id="{{ template.id }}"
+                                            data-template-name="{{ template.name }}">
+                                        <i class="fas fa-trash-alt"></i>
+                                    </button>
+                                    {% endif %}
+                                    <a href="{{ url_for('policy.create') }}?template_id={{ template.id }}" class="btn btn-sm btn-success">
+                                        <i class="fas fa-play me-1"></i>使用
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-center py-5">
+                <div class="mb-3">
+                    <i class="fas fa-file-alt fa-3x text-muted"></i>
+                </div>
+                <h5 class="text-muted">暂无用户模板</h5>
+                <p class="text-muted small">您可以创建自己的策略模板</p>
+                <a href="{{ url_for('policy.create_template') }}" class="btn btn-primary mt-2">
+                    <i class="fas fa-plus me-1"></i>创建模板
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- 查看模板模态框 -->
+<div class="modal fade" id="viewTemplateModal" tabindex="-1" aria-labelledby="viewTemplateModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="viewTemplateModalLabel">查看模板配置</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <p><strong>模板名称:</strong> <span id="modal-template-name"></span></p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>模板类型:</strong> <span id="modal-template-type"></span></p>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <p><strong>描述:</strong></p>
+                    <p id="modal-template-description" class="text-muted"></p>
+                </div>
+                <div>
+                    <p><strong>配置详情:</strong></p>
+                    <pre id="modal-template-config" class="bg-light p-3"></pre>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                <a href="#" id="modal-use-template" class="btn btn-success">
+                    <i class="fas fa-play me-1"></i>使用此模板
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 删除确认模态框 -->
+<div class="modal fade" id="deleteTemplateModal" tabindex="-1" aria-labelledby="deleteTemplateModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteTemplateModalLabel">确认删除</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>确定要删除模板 <strong id="templateNameToDelete"></strong> 吗？</p>
+                <p class="text-danger">此操作不可恢复，删除后模板将无法使用。</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <form id="deleteTemplateForm" method="POST" action="">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-danger">确认删除</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // 查看模板
+        const viewTemplateButtons = document.querySelectorAll('.view-template');
+        if (viewTemplateButtons.length > 0) {
+            viewTemplateButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    const templateId = this.getAttribute('data-template-id');
+                    fetch("{{ url_for('policy.get_template', id=0) }}".replace('0', templateId))
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success && data.template) {
+                                document.getElementById('modal-template-name').textContent = data.template.name;
+                                document.getElementById('modal-template-type').textContent = data.template.type;
+                                document.getElementById('modal-template-description').textContent = 
+                                    data.template.description || '无描述';
+                                
+                                // 格式化JSON
+                                try {
+                                    const config = JSON.parse(data.template.config);
+                                    document.getElementById('modal-template-config').textContent = 
+                                        JSON.stringify(config, null, 2);
+                                } catch (e) {
+                                    document.getElementById('modal-template-config').textContent = 
+                                        data.template.config || '{}';
+                                }
+                                
+                                // 设置"使用此模板"按钮的链接
+                                document.getElementById('modal-use-template').href = 
+                                    "{{ url_for('policy.create') }}?template_id=" + templateId;
+                            } else {
+                                alert('获取模板失败: ' + (data.message || '未知错误'));
+                            }
+                        })
+                        .catch(error => {
+                            alert('请求失败: ' + error.message);
+                        });
+                });
+            });
+        }
+        
+        // 删除模板确认
+        const deleteTemplateModal = document.getElementById('deleteTemplateModal');
+        if (deleteTemplateModal) {
+            deleteTemplateModal.addEventListener('show.bs.modal', function(event) {
+                const button = event.relatedTarget;
+                const templateId = button.getAttribute('data-template-id');
+                const templateName = button.getAttribute('data-template-name');
+                
+                document.getElementById('templateNameToDelete').textContent = templateName;
+                document.getElementById('deleteTemplateForm').action = 
+                    "{{ url_for('policy.delete_template', id=0) }}".replace('0', templateId);
+            });
+        }
+    });
+</script>
+{% endblock %} 

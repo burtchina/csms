@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="mb-0">策略详情</h1>
+        <div>
+            <a href="{{ url_for('policy_view.index') }}" class="btn btn-secondary me-2">
+                <i class="fas fa-arrow-left me-1"></i>返回列表
+            </a>
+            <a href="{{ url_for('policy_view.deploy', policy_id=policy.id) }}" class="btn btn-success">
+                <i class="fas fa-upload me-1"></i>部署策略
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">基本信息</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-borderless">
+                        <tr>
+                            <th width="30%">ID</th>
+                            <td>{{ policy.id }}</td>
+                        </tr>
+                        <tr>
+                            <th>策略名称</th>
+                            <td>{{ policy.name }}</td>
+                        </tr>
+                        <tr>
+                            <th>类型</th>
+                            <td><span class="badge bg-info">{{ policy.type }}</span></td>
+                        </tr>
+                        <tr>
+                            <th>状态</th>
+                            <td>
+                                {% if policy.status == 'active' %}
+                                    <span class="badge bg-success">已激活</span>
+                                {% elif policy.status == 'draft' %}
+                                    <span class="badge bg-warning">草稿</span>
+                                {% elif policy.status == 'deleted' %}
+                                    <span class="badge bg-danger">已删除</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">{{ policy.status }}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>创建时间</th>
+                            <td>{{ policy.created_at }}</td>
+                        </tr>
+                        <tr>
+                            <th>更新时间</th>
+                            <td>{{ policy.updated_at }}</td>
+                        </tr>
+                        <tr>
+                            <th>创建人</th>
+                            <td>{{ policy.creator.username if policy.creator else '未知' }}</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">策略描述</h5>
+                </div>
+                <div class="card-body">
+                    <p>{{ policy.description or '暂无描述' }}</p>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">部署状态</h5>
+                </div>
+                <div class="card-body">
+                    {% if policy.deployments %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>设备</th>
+                                        <th>状态</th>
+                                        <th>部署时间</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for deployment in policy.deployments %}
+                                        <tr>
+                                            <td>{{ deployment.device.name if deployment.device else '未知设备' }}</td>
+                                            <td>
+                                                {% if deployment.status == 'success' %}
+                                                    <span class="badge bg-success">成功</span>
+                                                {% elif deployment.status == 'failed' %}
+                                                    <span class="badge bg-danger">失败</span>
+                                                {% elif deployment.status == 'pending' %}
+                                                    <span class="badge bg-warning">等待中</span>
+                                                {% else %}
+                                                    <span class="badge bg-secondary">{{ deployment.status }}</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>{{ deployment.deployed_at }}</td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>此策略尚未部署到任何设备
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="card mt-4">
+        <div class="card-header">
+            <h5 class="card-title mb-0">策略配置</h5>
+        </div>
+        <div class="card-body">
+            <pre class="p-3 bg-light rounded"><code>{{ policy.config | tojson(indent=2) }}</code></pre>
+        </div>
+    </div>
+</div>
+{% endblock %} 

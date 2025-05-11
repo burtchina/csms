@@ -1,0 +1,357 @@
+{% extends "base.html" %}
+
+{% block title %}{{ '编辑策略' if policy else '新建策略' }} | 校园安全管理系统{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jsoneditor/9.9.0/jsoneditor.min.css">
+<style>
+    .required-field label:after {
+        content: " *";
+        color: red;
+    }
+    #json-editor {
+        height: 500px;
+    }
+    .template-card {
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    .template-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    .template-card.selected {
+        border: 2px solid #0d6efd;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- 面包屑导航 -->
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('index') }}">首页</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('policy.index') }}">安全策略管理</a></li>
+            <li class="breadcrumb-item active" aria-current="page">{{ '编辑策略' if policy else '新建策略' }}</li>
+        </ol>
+    </nav>
+
+    <!-- 策略编辑页头部 -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 text-gray-800">{{ '编辑策略' if policy else '新建策略' }}</h1>
+        <div>
+            <a href="{{ url_for('policy.index') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-1"></i>返回列表
+            </a>
+        </div>
+    </div>
+
+    <!-- 表单卡片 -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <form id="policyForm" method="POST" action="{{ url_for('policy.edit', id=policy.id) if policy else url_for('policy.create') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="config" id="config-json" value="{{ policy.config|tojson if policy else '{}' }}">
+                
+                <div class="row">
+                    <!-- 基本信息 -->
+                    <div class="col-md-6">
+                        <h5 class="mb-3">基本信息</h5>
+                        <div class="mb-3 required-field">
+                            <label for="name" class="form-label">策略名称</label>
+                            <input type="text" class="form-control" id="name" name="name" value="{{ policy.name if policy else '' }}" required>
+                        </div>
+                        <div class="mb-3 required-field">
+                            <label for="type" class="form-label">策略类型</label>
+                            <select class="form-select" id="type" name="type" required>
+                                <option value="">-- 请选择 --</option>
+                                <option value="ipsec" {% if policy and policy.type == 'ipsec' %}selected{% endif %}>IPSec</option>
+                                <option value="ssl" {% if policy and policy.type == 'ssl' %}selected{% endif %}>SSL VPN</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="description" class="form-label">描述</label>
+                            <textarea class="form-control" id="description" name="description" rows="3">{{ policy.description if policy else '' }}</textarea>
+                        </div>
+                        {% if policy %}
+                        <div class="mb-3">
+                            <label for="status" class="form-label">状态</label>
+                            <select class="form-select" id="status" name="status">
+                                <option value="draft" {% if policy.status == 'draft' %}selected{% endif %}>草稿</option>
+                                <option value="active" {% if policy.status == 'active' %}selected{% endif %}>激活</option>
+                            </select>
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- 从模板创建 -->
+                    {% if not policy %}
+                    <div class="col-md-6">
+                        <h5 class="mb-3">从模板创建 <small class="text-muted">(可选)</small></h5>
+                        <div class="mb-3">
+                            <label class="form-label">选择模板</label>
+                            <div class="row" id="templateContainer">
+                                {% if templates %}
+                                    {% for template in templates %}
+                                    <div class="col-md-6 mb-3">
+                                        <div class="card template-card" data-template-id="{{ template.id }}">
+                                            <div class="card-body">
+                                                <h6 class="card-title">{{ template.name }}</h6>
+                                                <p class="card-text text-muted small">{{ template.description|truncate(50) if template.description else '无描述' }}</p>
+                                                <span class="badge bg-info">{{ template.type }}</span>
+                                                {% if template.is_system %}
+                                                <span class="badge bg-secondary">系统模板</span>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                {% else %}
+                                <div class="col-md-12">
+                                    <div class="alert alert-info">
+                                        <i class="fas fa-info-circle me-2"></i>暂无可用模板，您可以手动配置或前往<a href="{{ url_for('policy.templates') }}">模板管理</a>创建模板。
+                                    </div>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <hr class="my-4">
+                
+                <!-- 配置编辑器 -->
+                <h5 class="mb-3">配置详情</h5>
+                <div class="mb-4">
+                    <div id="json-editor"></div>
+                </div>
+                
+                <!-- 表单按钮 -->
+                <div class="d-flex justify-content-end">
+                    <button type="button" class="btn btn-outline-secondary me-2" onclick="window.location.href='{{ url_for('policy.index') }}'">取消</button>
+                    <button type="button" class="btn btn-success" id="validateBtn">
+                        <i class="fas fa-check me-1"></i>验证配置
+                    </button>
+                    <button type="submit" class="btn btn-primary ms-2" id="saveBtn">
+                        <i class="fas fa-save me-1"></i>保存策略
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- 验证结果模态框 -->
+<div class="modal fade" id="validateModal" tabindex="-1" aria-labelledby="validateModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="validateModalLabel">配置验证结果</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="validate-result">验证中...</div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsoneditor/9.9.0/jsoneditor.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // 初始化JSON编辑器
+        const container = document.getElementById('json-editor');
+        const options = {
+            mode: 'tree',
+            modes: ['tree', 'code', 'form', 'text', 'view'],
+            templates: [
+                {
+                    text: 'IPSec基本配置',
+                    title: 'IPSec策略基本配置模板',
+                    field: 'ipsec_template',
+                    value: {
+                        version: "1.0",
+                        firewall_settings: {
+                            default_action: "deny",
+                            allowed_protocols: [
+                                {
+                                    protocol: "udp",
+                                    port: 500,
+                                    description: "IKE"
+                                },
+                                {
+                                    protocol: "udp",
+                                    port: 4500,
+                                    description: "NAT-T"
+                                },
+                                {
+                                    protocol: "esp",
+                                    description: "ESP Protocol"
+                                }
+                            ]
+                        },
+                        ipsec_settings: {
+                            authentication: {
+                                method: "psk",
+                                psk: ""
+                            },
+                            encryption: {
+                                phase1: ["aes-256", "sha256", "dh-group14"],
+                                phase2: ["aes-256", "sha256"]
+                            },
+                            lifetime: {
+                                phase1: 86400,
+                                phase2: 3600
+                            }
+                        },
+                        tunnel_settings: {
+                            local_subnet: "",
+                            remote_subnet: "",
+                            remote_gateway: ""
+                        },
+                        source_restrictions: {
+                            allowed_ips: [],
+                            allowed_domains: []
+                        },
+                        advanced: {
+                            dpd_enabled: true,
+                            dpd_delay: 30,
+                            dpd_timeout: 120,
+                            nat_traversal: true,
+                            perfect_forward_secrecy: true
+                        }
+                    }
+                }
+            ]
+        };
+        
+        // 创建编辑器实例
+        const editor = new JSONEditor(container, options);
+        
+        // 加载现有配置或默认配置
+        try {
+            const initialJson = document.getElementById('config-json').value;
+            const initialValue = initialJson ? JSON.parse(initialJson) : {};
+            editor.set(initialValue);
+        } catch (e) {
+            console.error('JSON解析错误:', e);
+            editor.set({});
+        }
+        
+        // 表单提交前更新配置JSON
+        document.getElementById('policyForm').addEventListener('submit', function(e) {
+            try {
+                const jsonValue = editor.get();
+                document.getElementById('config-json').value = JSON.stringify(jsonValue);
+            } catch (e) {
+                e.preventDefault();
+                alert('JSON格式错误，请检查配置！');
+                console.error('JSON错误:', e);
+            }
+        });
+        
+        // 验证配置按钮
+        document.getElementById('validateBtn').addEventListener('click', function() {
+            try {
+                const jsonValue = editor.get();
+                const validateUrl = "{{ url_for('policy.validate') }}";
+                
+                // 显示验证模态框
+                const validateModal = new bootstrap.Modal(document.getElementById('validateModal'));
+                validateModal.show();
+                
+                // 发送验证请求
+                fetch(validateUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': "{{ csrf_token() }}"
+                    },
+                    body: JSON.stringify({
+                        type: document.getElementById('type').value,
+                        config: jsonValue
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    const resultElement = document.getElementById('validate-result');
+                    if (data.success) {
+                        resultElement.innerHTML = `
+                            <div class="alert alert-success">
+                                <i class="fas fa-check-circle me-2"></i>配置验证通过！
+                            </div>
+                        `;
+                    } else {
+                        resultElement.innerHTML = `
+                            <div class="alert alert-danger">
+                                <i class="fas fa-exclamation-circle me-2"></i>配置验证失败！
+                            </div>
+                            <div class="mt-3">
+                                <h6>错误信息:</h6>
+                                <pre class="bg-light p-3">${JSON.stringify(data.errors, null, 2)}</pre>
+                            </div>
+                        `;
+                    }
+                })
+                .catch(error => {
+                    document.getElementById('validate-result').innerHTML = `
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-circle me-2"></i>验证请求失败：${error.message}
+                        </div>
+                    `;
+                });
+            } catch (e) {
+                alert('JSON格式错误，请检查配置！');
+                console.error('JSON错误:', e);
+            }
+        });
+        
+        // 模板选择
+        const templateCards = document.querySelectorAll('.template-card');
+        if (templateCards.length > 0) {
+            templateCards.forEach(card => {
+                card.addEventListener('click', function() {
+                    // 移除其他卡片的选中状态
+                    templateCards.forEach(c => c.classList.remove('selected'));
+                    
+                    // 添加当前卡片的选中状态
+                    this.classList.add('selected');
+                    
+                    // 获取模板ID
+                    const templateId = this.getAttribute('data-template-id');
+                    
+                    // 获取模板配置
+                    fetch("{{ url_for('policy.get_template', id=0) }}".replace('0', templateId))
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success && data.template) {
+                                // 更新表单字段
+                                document.getElementById('type').value = data.template.type;
+                                
+                                // 更新JSON编辑器
+                                try {
+                                    const templateConfig = JSON.parse(data.template.config);
+                                    editor.set(templateConfig);
+                                } catch (e) {
+                                    console.error('模板JSON解析错误:', e);
+                                }
+                            } else {
+                                alert('获取模板失败: ' + (data.message || '未知错误'));
+                            }
+                        })
+                        .catch(error => {
+                            alert('获取模板请求失败: ' + error.message);
+                        });
+                });
+            });
+        }
+    });
+</script>
+{% endblock %} 

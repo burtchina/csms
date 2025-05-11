@@ -1,0 +1,387 @@
+{% extends "base.html" %}
+
+{% block title %}策略详情 | 校园安全管理系统{% endblock %}
+
+{% block head %}
+<style>
+    .policy-status {
+        display: inline-block;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        margin-right: 5px;
+    }
+    .status-active {
+        background-color: #28a745;
+    }
+    .status-draft {
+        background-color: #ffc107;
+    }
+    .status-deleted {
+        background-color: #dc3545;
+    }
+    .deployment-status {
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        margin-right: 5px;
+    }
+    .deploy-success {
+        background-color: #28a745;
+    }
+    .deploy-pending {
+        background-color: #ffc107;
+    }
+    .deploy-failed {
+        background-color: #dc3545;
+    }
+    .json-viewer {
+        background-color: #f8f9fa;
+        padding: 15px;
+        border-radius: 5px;
+        max-height: 500px;
+        overflow-y: auto;
+    }
+    .nav-pills .nav-link.active {
+        background-color: #f8f9fa;
+        color: #212529;
+        border-left: 3px solid #0d6efd;
+    }
+    .nav-pills .nav-link {
+        color: #6c757d;
+        padding: 0.5rem 1rem;
+        border-left: 3px solid transparent;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- 面包屑导航 -->
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('index') }}">首页</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('policy_view.index') }}">安全策略管理</a></li>
+            <li class="breadcrumb-item active" aria-current="page">策略详情</li>
+        </ol>
+    </nav>
+
+    <!-- 策略头部信息 -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0 text-gray-800">{{ policy.name }} 
+                {% if policy.status == 'active' %}
+                <span class="badge bg-success ms-2">已激活</span>
+                {% elif policy.status == 'draft' %}
+                <span class="badge bg-warning ms-2">草稿</span>
+                {% elif policy.status == 'deleted' %}
+                <span class="badge bg-danger ms-2">已删除</span>
+                {% endif %}
+            </h1>
+            <p class="text-muted small mb-0">
+                <span>创建时间: {{ policy.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</span>
+                <span class="mx-2">|</span>
+                <span>最后更新: {{ policy.updated_at.strftime('%Y-%m-%d %H:%M:%S') }}</span>
+                <span class="mx-2">|</span>
+                <span>创建人: {{ policy.creator_name if policy.creator_name is defined else '用户' + policy.created_by|string }}</span>
+            </p>
+        </div>
+        <div>
+            {% if policy.status != 'deleted' %}
+            <a href="{{ url_for('policy_view.edit', policy_id=policy.id) }}" class="btn btn-outline-primary">
+                <i class="fas fa-edit me-1"></i>编辑策略
+            </a>
+            <a href="{{ url_for('policy_view.deploy', policy_id=policy.id) }}" class="btn btn-success ms-2">
+                <i class="fas fa-upload me-1"></i>部署策略
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- 左侧导航 -->
+        <div class="col-md-3 mb-4">
+            <div class="card shadow-sm">
+                <div class="card-body p-0">
+                    <div class="nav flex-column nav-pills" id="v-pills-tab" role="tablist" aria-orientation="vertical">
+                        <a class="nav-link active" id="v-pills-basic-tab" data-bs-toggle="pill" href="#v-pills-basic" role="tab" aria-controls="v-pills-basic" aria-selected="true">
+                            <i class="fas fa-info-circle me-2"></i>基本信息
+                        </a>
+                        <a class="nav-link" id="v-pills-config-tab" data-bs-toggle="pill" href="#v-pills-config" role="tab" aria-controls="v-pills-config" aria-selected="false">
+                            <i class="fas fa-cogs me-2"></i>配置详情
+                        </a>
+                        <a class="nav-link" id="v-pills-deployment-tab" data-bs-toggle="pill" href="#v-pills-deployment" role="tab" aria-controls="v-pills-deployment" aria-selected="false">
+                            <i class="fas fa-upload me-2"></i>部署状态
+                        </a>
+                        <a class="nav-link" id="v-pills-history-tab" data-bs-toggle="pill" href="#v-pills-history" role="tab" aria-controls="v-pills-history" aria-selected="false">
+                            <i class="fas fa-history me-2"></i>变更历史
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 右侧内容 -->
+        <div class="col-md-9">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <div class="tab-content" id="v-pills-tabContent">
+                        <!-- 基本信息 -->
+                        <div class="tab-pane fade show active" id="v-pills-basic" role="tabpanel" aria-labelledby="v-pills-basic-tab">
+                            <h5 class="card-title mb-4">基本信息</h5>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label text-muted">策略名称</label>
+                                    <p class="fw-bold">{{ policy.name }}</p>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label text-muted">策略类型</label>
+                                    <p>
+                                        {% if policy.type == 'ipsec' %}
+                                        <span class="badge bg-info">IPSec</span>
+                                        {% elif policy.type == 'ssl' %}
+                                        <span class="badge bg-primary">SSL VPN</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary">{{ policy.type }}</span>
+                                        {% endif %}
+                                    </p>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label text-muted">策略状态</label>
+                                    <p>
+                                        {% if policy.status == 'active' %}
+                                        <span><span class="policy-status status-active"></span>已激活</span>
+                                        {% elif policy.status == 'draft' %}
+                                        <span><span class="policy-status status-draft"></span>草稿</span>
+                                        {% elif policy.status == 'deleted' %}
+                                        <span><span class="policy-status status-deleted"></span>已删除</span>
+                                        {% endif %}
+                                    </p>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label text-muted">创建人</label>
+                                    <p>{{ policy.creator_name if policy.creator_name is defined else '用户' + policy.created_by|string }}</p>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label text-muted">创建时间</label>
+                                    <p>{{ policy.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label text-muted">最后更新</label>
+                                    <p>{{ policy.updated_at.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+                                </div>
+                                <div class="col-md-12 mb-3">
+                                    <label class="form-label text-muted">描述</label>
+                                    <p>{{ policy.description or '暂无描述' }}</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 配置详情 -->
+                        <div class="tab-pane fade" id="v-pills-config" role="tabpanel" aria-labelledby="v-pills-config-tab">
+                            <h5 class="card-title mb-4">配置详情</h5>
+                            {% if policy.config %}
+                            <div class="json-viewer">
+                                <pre id="json-display">{{ policy.config|tojson(indent=2) }}</pre>
+                            </div>
+                            {% else %}
+                            <div class="alert alert-warning">
+                                <i class="fas fa-exclamation-triangle me-2"></i>暂无配置信息
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- 部署状态 -->
+                        <div class="tab-pane fade" id="v-pills-deployment" role="tabpanel" aria-labelledby="v-pills-deployment-tab">
+                            <h5 class="card-title mb-4">部署状态</h5>
+                            {% if deployments %}
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th style="width: 30%">设备名称</th>
+                                            <th style="width: 15%">部署状态</th>
+                                            <th style="width: 20%">部署时间</th>
+                                            <th style="width: 15%">部署人</th>
+                                            <th style="width: 20%">操作</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for deployment in deployments %}
+                                        <tr>
+                                            <td>{{ deployment.device.name }}</td>
+                                            <td>
+                                                {% if deployment.status == 'success' %}
+                                                <span><span class="deployment-status deploy-success"></span>成功</span>
+                                                {% elif deployment.status == 'pending' %}
+                                                <span><span class="deployment-status deploy-pending"></span>进行中</span>
+                                                {% elif deployment.status == 'failed' %}
+                                                <span><span class="deployment-status deploy-failed"></span>失败</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>{{ deployment.deployed_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                                            <td>{{ deployment.deployer_name if deployment.deployer_name is defined else '用户' + deployment.deployed_by|string }}</td>
+                                            <td>
+                                                <button type="button" class="btn btn-sm btn-outline-info view-result" 
+                                                        data-bs-toggle="modal" 
+                                                        data-bs-target="#resultModal"
+                                                        data-result="{{ deployment.result }}">
+                                                    <i class="fas fa-eye me-1"></i>查看结果
+                                                </button>
+                                                {% if deployment.status == 'success' %}
+                                                <button type="button" class="btn btn-sm btn-outline-warning" 
+                                                        data-bs-toggle="modal" 
+                                                        data-bs-target="#rollbackModal"
+                                                        data-deployment-id="{{ deployment.id }}">
+                                                    <i class="fas fa-undo me-1"></i>回滚
+                                                </button>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                            {% else %}
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle me-2"></i>该策略尚未部署到任何设备
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- 变更历史 -->
+                        <div class="tab-pane fade" id="v-pills-history" role="tabpanel" aria-labelledby="v-pills-history-tab">
+                            <h5 class="card-title mb-4">变更历史</h5>
+                            {% if audit_logs %}
+                            <div class="timeline">
+                                {% for log in audit_logs %}
+                                <div class="timeline-item">
+                                    <div class="timeline-date">
+                                        {{ log.created_at.strftime('%Y-%m-%d %H:%M:%S') }}
+                                    </div>
+                                    <div class="timeline-content">
+                                        <div class="timeline-title">
+                                            {% if log.action == 'create' %}
+                                            <i class="fas fa-plus-circle text-success me-2"></i>创建策略
+                                            {% elif log.action == 'update' %}
+                                            <i class="fas fa-edit text-primary me-2"></i>更新策略
+                                            {% elif log.action == 'delete' %}
+                                            <i class="fas fa-trash-alt text-danger me-2"></i>删除策略
+                                            {% elif log.action == 'deploy' %}
+                                            <i class="fas fa-upload text-info me-2"></i>部署策略
+                                            {% elif log.action == 'rollback' %}
+                                            <i class="fas fa-undo text-warning me-2"></i>回滚策略
+                                            {% else %}
+                                            <i class="fas fa-history me-2"></i>{{ log.action }}
+                                            {% endif %}
+                                        </div>
+                                        <div class="timeline-user">
+                                            操作人: {{ log.user_name if log.user_name is defined else '用户' + log.user_id|string }}
+                                        </div>
+                                        <div class="timeline-detail">
+                                            {{ log.details or '无详细信息' }}
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            {% else %}
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle me-2"></i>暂无审计日志记录
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 部署结果查看模态框 -->
+<div class="modal fade" id="resultModal" tabindex="-1" aria-labelledby="resultModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="resultModalLabel">部署结果详情</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
+            </div>
+            <div class="modal-body">
+                <pre id="result-content" class="p-3 bg-light"></pre>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 策略回滚确认模态框 -->
+<div class="modal fade" id="rollbackModal" tabindex="-1" aria-labelledby="rollbackModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="rollbackModalLabel">确认回滚策略</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
+            </div>
+            <div class="modal-body">
+                <p>您确定要回滚此策略部署吗？此操作将恢复设备上的先前配置。</p>
+                <p class="text-danger"><i class="fas fa-exclamation-triangle me-2"></i>警告：回滚可能会导致网络连接中断，请确保您了解可能的风险。</p>
+            </div>
+            <div class="modal-footer">
+                <form id="rollbackForm" method="post" action="{{ url_for('policy_deploy.rollback_policy') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="deployment_id" id="rollbackDeploymentId" value="">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-warning">确认回滚</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/jsoneditor@9.5.7/dist/jsoneditor.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // 初始化JSON查看器
+        try {
+            const jsonDisplay = document.getElementById('json-display');
+            if (jsonDisplay) {
+                const jsonData = JSON.parse(jsonDisplay.textContent);
+                jsonDisplay.innerHTML = JSON.stringify(jsonData, null, 2);
+                // 美化格式
+                jsonDisplay.classList.add('language-json');
+                if (window.hljs) {
+                    hljs.highlightElement(jsonDisplay);
+                }
+            }
+        } catch (e) {
+            console.error("JSON解析错误:", e);
+        }
+        
+        // 设置查看部署结果模态框
+        const resultModal = document.getElementById('resultModal');
+        if (resultModal) {
+            resultModal.addEventListener('show.bs.modal', function (event) {
+                const button = event.relatedTarget;
+                const result = button.getAttribute('data-result') || '无详细信息';
+                const resultContent = document.getElementById('result-content');
+                resultContent.textContent = result;
+            });
+        }
+        
+        // 设置回滚确认模态框
+        const rollbackModal = document.getElementById('rollbackModal');
+        if (rollbackModal) {
+            rollbackModal.addEventListener('show.bs.modal', function (event) {
+                const button = event.relatedTarget;
+                const deploymentId = button.getAttribute('data-deployment-id');
+                document.getElementById('rollbackDeploymentId').value = deploymentId;
+            });
+        }
+    });
+</script>
+{% endblock %} 

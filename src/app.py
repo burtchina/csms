@@ -37,6 +37,7 @@ from flask import Flask, render_template, redirect, url_for, request, send_from_
 from flask_login import current_user, login_required
 from functools import wraps
 from flask_migrate import Migrate
+from flask_wtf.csrf import CSRFProtect
 
 def create_app(config_name=None):
     """
@@ -76,6 +77,9 @@ def create_app(config_name=None):
     migrate = Migrate(app, db)
     login_manager.init_app(app)
     
+    # 初始化CSRFProtect
+    csrf = CSRFProtect(app)
+    
     # 登录管理器初始化
     login_manager.login_view = 'auth.login'
     login_manager.login_message = '请先登录再访问此页面'
@@ -100,6 +104,7 @@ def create_app(config_name=None):
     from src.modules.performance.routes import performance_bp
     from src.modules.system.routes import system_bp
     from src.api import api_bp
+    from src.modules.policy import init_app as init_policy, policy_template_bp, policy_deploy_bp
     
     # 导入增强版监控蓝图
     try:
@@ -124,6 +129,10 @@ def create_app(config_name=None):
     app.register_blueprint(performance_bp, url_prefix='/performance')
     app.register_blueprint(system_bp, url_prefix='/system')
     app.register_blueprint(api_bp, url_prefix='/api')
+    
+    # 初始化策略管理模块
+    init_policy(app)
+    logger.info("已注册IPSec与防火墙联动策略管理模块")
     
     # 注册增强版监控蓝图
     if has_enhanced_monitor:
@@ -315,6 +324,22 @@ def register_error_handlers(app):
         return render_template('errors/500.html'), 500
     
     logger.debug("错误处理器注册完成")
+
+# 全局应用实例
+_app_instance = None
+
+def get_app():
+    """获取全局Flask应用实例
+    
+    如果实例不存在，则创建一个新的应用实例
+    
+    Returns:
+        Flask应用实例
+    """
+    global _app_instance
+    if _app_instance is None:
+        _app_instance = create_app()
+    return _app_instance
 
 # 如果直接运行此文件
 if __name__ == '__main__':

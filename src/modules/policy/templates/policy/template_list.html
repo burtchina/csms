@@ -1,0 +1,311 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="mb-0">策略模板管理</h1>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createTemplateModal">
+            <i class="fas fa-plus me-1"></i>新建模板
+        </button>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h5 class="card-title mb-0">模板列表</h5>
+        </div>
+        <div class="card-body">
+            <ul class="nav nav-tabs" id="templateTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="all-tab" data-bs-toggle="tab" data-bs-target="#all" type="button" role="tab" aria-controls="all" aria-selected="true">所有模板</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="system-tab" data-bs-toggle="tab" data-bs-target="#system" type="button" role="tab" aria-controls="system" aria-selected="false">系统模板</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="custom-tab" data-bs-toggle="tab" data-bs-target="#custom" type="button" role="tab" aria-controls="custom" aria-selected="false">自定义模板</button>
+                </li>
+            </ul>
+            
+            <div class="tab-content mt-3" id="templateTabContent">
+                <div class="tab-pane fade show active" id="all" role="tabpanel" aria-labelledby="all-tab">
+                    {% if templates %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>模板名称</th>
+                                        <th>类型</th>
+                                        <th>来源</th>
+                                        <th>创建时间</th>
+                                        <th>操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for template in templates %}
+                                        <tr>
+                                            <td>{{ template.id }}</td>
+                                            <td>{{ template.name }}</td>
+                                            <td><span class="badge bg-info">{{ template.type }}</span></td>
+                                            <td>
+                                                {% if template.is_system %}
+                                                    <span class="badge bg-secondary">系统</span>
+                                                {% else %}
+                                                    <span class="badge bg-primary">自定义</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>{{ template.created_at }}</td>
+                                            <td>
+                                                <button class="btn btn-sm btn-info view-template" data-id="{{ template.id }}" data-config="{{ template.config | tojson }}">
+                                                    <i class="fas fa-eye"></i>
+                                                </button>
+                                                <a href="{{ url_for('policy_view.create') }}?template_id={{ template.id }}" class="btn btn-sm btn-success">
+                                                    <i class="fas fa-plus"></i>
+                                                </a>
+                                                {% if not template.is_system %}
+                                                    <form method="POST" action="{{ url_for('policy_view.delete_template', template_id=template.id) }}" class="d-inline delete-template-form">
+                                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                                        <button type="submit" class="btn btn-sm btn-danger delete-template">
+                                                            <i class="fas fa-trash"></i>
+                                                        </button>
+                                                    </form>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>暂无可用模板
+                        </div>
+                    {% endif %}
+                </div>
+                
+                <div class="tab-pane fade" id="system" role="tabpanel" aria-labelledby="system-tab">
+                    {% set system_templates = templates | selectattr('is_system', 'eq', true) | list %}
+                    {% if system_templates %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>模板名称</th>
+                                        <th>类型</th>
+                                        <th>创建时间</th>
+                                        <th>操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for template in system_templates %}
+                                        <tr>
+                                            <td>{{ template.id }}</td>
+                                            <td>{{ template.name }}</td>
+                                            <td><span class="badge bg-info">{{ template.type }}</span></td>
+                                            <td>{{ template.created_at }}</td>
+                                            <td>
+                                                <button class="btn btn-sm btn-info view-template" data-id="{{ template.id }}" data-config="{{ template.config | tojson }}">
+                                                    <i class="fas fa-eye"></i>
+                                                </button>
+                                                <a href="{{ url_for('policy_view.create') }}?template_id={{ template.id }}" class="btn btn-sm btn-success">
+                                                    <i class="fas fa-plus"></i>
+                                                </a>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>暂无系统模板
+                        </div>
+                    {% endif %}
+                </div>
+                
+                <div class="tab-pane fade" id="custom" role="tabpanel" aria-labelledby="custom-tab">
+                    {% set custom_templates = templates | selectattr('is_system', 'eq', false) | list %}
+                    {% if custom_templates %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>模板名称</th>
+                                        <th>类型</th>
+                                        <th>创建时间</th>
+                                        <th>操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for template in custom_templates %}
+                                        <tr>
+                                            <td>{{ template.id }}</td>
+                                            <td>{{ template.name }}</td>
+                                            <td><span class="badge bg-info">{{ template.type }}</span></td>
+                                            <td>{{ template.created_at }}</td>
+                                            <td>
+                                                <button class="btn btn-sm btn-info view-template" data-id="{{ template.id }}" data-config="{{ template.config | tojson }}">
+                                                    <i class="fas fa-eye"></i>
+                                                </button>
+                                                <a href="{{ url_for('policy_view.create') }}?template_id={{ template.id }}" class="btn btn-sm btn-success">
+                                                    <i class="fas fa-plus"></i>
+                                                </a>
+                                                <form method="POST" action="{{ url_for('policy_view.delete_template', template_id=template.id) }}" class="d-inline delete-template-form">
+                                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                                    <button type="submit" class="btn btn-sm btn-danger delete-template">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </form>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>暂无自定义模板
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 查看模板模态框 -->
+<div class="modal fade" id="viewTemplateModal" tabindex="-1" aria-labelledby="viewTemplateModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="viewTemplateModalLabel">查看模板配置</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <pre class="p-3 bg-light rounded"><code id="templateConfigContent"></code></pre>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 创建模板模态框 -->
+<div class="modal fade" id="createTemplateModal" tabindex="-1" aria-labelledby="createTemplateModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="createTemplateModalLabel">创建新模板</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="templateForm">
+                    <div class="mb-3">
+                        <label for="templateName" class="form-label">模板名称 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="templateName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="templateType" class="form-label">类型 <span class="text-danger">*</span></label>
+                        <select class="form-select" id="templateType" required>
+                            <option value="">请选择...</option>
+                            <option value="ipsec">IPSec</option>
+                            <option value="ssl">SSL VPN</option>
+                            <option value="firewall">防火墙</option>
+                            <option value="ipsec_firewall">IPSec与防火墙联动</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="templateDescription" class="form-label">描述</label>
+                        <textarea class="form-control" id="templateDescription" rows="3"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="templateConfig" class="form-label">配置 <span class="text-danger">*</span></label>
+                        <div id="jsonEditor" class="border rounded p-3" style="min-height: 300px;"></div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" id="saveTemplateBtn">保存模板</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsoneditor/9.9.2/jsoneditor.min.js"></script>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/jsoneditor/9.9.2/jsoneditor.min.css" rel="stylesheet" type="text/css">
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // 查看模板
+        const viewButtons = document.querySelectorAll('.view-template');
+        viewButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const templateId = this.getAttribute('data-id');
+                const templateConfig = JSON.parse(this.getAttribute('data-config'));
+                document.getElementById('templateConfigContent').textContent = JSON.stringify(templateConfig, null, 2);
+                new bootstrap.Modal(document.getElementById('viewTemplateModal')).show();
+            });
+        });
+        
+        // 删除模板表单提交前确认
+        const deleteForms = document.querySelectorAll('.delete-template-form');
+        deleteForms.forEach(form => {
+            form.addEventListener('submit', function(event) {
+                if (!confirm('确定要删除此模板吗？此操作不可恢复。')) {
+                    event.preventDefault();
+                }
+            });
+        });
+        
+        // JSON编辑器初始化
+        const container = document.getElementById('jsonEditor');
+        const options = {
+            mode: 'tree',
+            mainMenuBar: false
+        };
+        const editor = new JSONEditor(container, options);
+        
+        // 默认配置
+        const defaultConfig = {
+            "version": "1.0",
+            "firewall_settings": {
+                "default_action": "deny",
+                "allowed_protocols": []
+            }
+        };
+        
+        // 设置初始值
+        editor.set(defaultConfig);
+        
+        // 保存模板按钮
+        document.getElementById('saveTemplateBtn').addEventListener('click', function() {
+            const name = document.getElementById('templateName').value;
+            const type = document.getElementById('templateType').value;
+            const description = document.getElementById('templateDescription').value;
+            
+            if (!name || !type) {
+                alert('请填写必填字段');
+                return;
+            }
+            
+            try {
+                const config = editor.get();
+                
+                // 这里可以添加保存模板的AJAX请求
+                alert('保存模板: ' + name);
+                // TODO: 实现实际的模板保存逻辑
+                
+                // 关闭模态框
+                bootstrap.Modal.getInstance(document.getElementById('createTemplateModal')).hide();
+            } catch (err) {
+                alert('配置格式错误: ' + err.message);
+            }
+        });
+    });
+</script>
+{% endblock %} 

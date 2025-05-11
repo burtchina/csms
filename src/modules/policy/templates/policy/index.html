@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="mb-0">安全策略管理</h1>
+        <a href="{{ url_for('policy_view.create') }}" class="btn btn-primary">
+            <i class="fas fa-plus me-1"></i>新建策略
+        </a>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h5 class="card-title mb-0">策略列表</h5>
+        </div>
+        <div class="card-body">
+            {% if policies %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>策略名称</th>
+                                <th>类型</th>
+                                <th>状态</th>
+                                <th>创建时间</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for policy in policies %}
+                                <tr>
+                                    <td>{{ policy.id }}</td>
+                                    <td>{{ policy.name }}</td>
+                                    <td><span class="badge bg-info">{{ policy.type }}</span></td>
+                                    <td>
+                                        {% if policy.status == 'active' %}
+                                            <span class="badge bg-success">已激活</span>
+                                        {% elif policy.status == 'draft' %}
+                                            <span class="badge bg-warning">草稿</span>
+                                        {% elif policy.status == 'deleted' %}
+                                            <span class="badge bg-danger">已删除</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">{{ policy.status }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ policy.created_at }}</td>
+                                    <td>
+                                        <a href="{{ url_for('policy_view.detail', policy_id=policy.id) }}" class="btn btn-sm btn-info">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                        <a href="{{ url_for('policy_view.deploy', policy_id=policy.id) }}" class="btn btn-sm btn-success">
+                                            <i class="fas fa-upload"></i>
+                                        </a>
+                                        <form method="POST" action="{{ url_for('policy_view.delete', policy_id=policy.id) }}" class="d-inline delete-policy-form">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                            <button type="submit" class="btn btn-sm btn-danger delete-policy">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>暂无策略数据
+                </div>
+                <p class="text-center">
+                    <a href="{{ url_for('policy_view.create') }}" class="btn btn-primary">
+                        <i class="fas fa-plus me-1"></i>创建第一个策略
+                    </a>
+                </p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // 删除策略表单提交前确认
+        const deleteForms = document.querySelectorAll('.delete-policy-form');
+        deleteForms.forEach(form => {
+            form.addEventListener('submit', function(event) {
+                if (!confirm('确定要删除此策略吗？此操作不可恢复。')) {
+                    event.preventDefault();
+                }
+            });
+        });
+    });
+</script>
+{% endblock %} 

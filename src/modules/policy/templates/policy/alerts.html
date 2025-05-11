@@ -1,0 +1,290 @@
+{% extends "base.html" %}
+
+{% block title %}策略告警管理 | 校园安全管理系统{% endblock %}
+
+{% block head %}
+<style>
+    .alert-severity-high {
+        background-color: #ffebee;
+        border-left: 4px solid #f44336;
+    }
+    .alert-severity-medium {
+        background-color: #fff8e1;
+        border-left: 4px solid #ffca28;
+    }
+    .alert-severity-low {
+        background-color: #e8f5e9;
+        border-left: 4px solid #66bb6a;
+    }
+    .alert-status-new {
+        font-weight: bold;
+    }
+    .alert-status-acknowledged {
+        font-style: italic;
+    }
+    .alert-status-resolved {
+        text-decoration: line-through;
+        opacity: 0.7;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 text-gray-800">策略告警管理</h1>
+        <div>
+            <button type="button" class="btn btn-primary" id="refreshBtn">
+                <i class="fas fa-sync-alt me-1"></i>刷新告警
+            </button>
+        </div>
+    </div>
+
+    <!-- 筛选条件卡片 -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <form method="GET" action="{{ url_for('policy_view.alerts') }}" class="row g-3">
+                <div class="col-md-3">
+                    <label for="alert_type" class="form-label">告警类型</label>
+                    <select class="form-select" id="alert_type" name="type">
+                        <option value="">全部类型</option>
+                        <option value="policy_violation">策略违规</option>
+                        <option value="sync_failed">同步失败</option>
+                        <option value="deploy_failed">部署失败</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label for="severity" class="form-label">严重程度</label>
+                    <select class="form-select" id="severity" name="severity">
+                        <option value="">全部严重度</option>
+                        <option value="critical">严重</option>
+                        <option value="warning">警告</option>
+                        <option value="info">提示</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label for="status" class="form-label">状态</label>
+                    <select class="form-select" id="status" name="status">
+                        <option value="">全部状态</option>
+                        <option value="new">新建</option>
+                        <option value="acknowledged">已确认</option>
+                        <option value="resolved">已解决</option>
+                    </select>
+                </div>
+                <div class="col-md-3 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary me-2">
+                        <i class="fas fa-search me-1"></i>筛选
+                    </button>
+                    <a href="{{ url_for('policy_view.alerts') }}" class="btn btn-outline-secondary">重置</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 告警列表卡片 -->
+    <div class="card shadow-sm">
+        <div class="card-header py-3 bg-light">
+            <h6 class="m-0 font-weight-bold">告警列表 <span class="badge bg-secondary">{{ alerts|length if alerts else 0 }}</span></h6>
+        </div>
+        <div class="card-body">
+            {% if alerts %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th style="width: 5%">ID</th>
+                            <th style="width: 15%">告警类型</th>
+                            <th style="width: 10%">严重程度</th>
+                            <th style="width: 20%">设备/策略</th>
+                            <th style="width: 30%">详情</th>
+                            <th style="width: 10%">状态</th>
+                            <th style="width: 10%">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for alert in alerts %}
+                        <tr class="alert-severity-{{ alert.severity if alert.severity in ['high', 'medium', 'low'] else 'medium' }} alert-status-{{ alert.status }}">
+                            <td>{{ alert.id }}</td>
+                            <td>
+                                {% if alert.alert_type == 'policy_violation' %}
+                                <span class="badge bg-danger">策略违规</span>
+                                {% elif alert.alert_type == 'sync_failed' %}
+                                <span class="badge bg-warning">同步失败</span>
+                                {% elif alert.alert_type == 'deploy_failed' %}
+                                <span class="badge bg-danger">部署失败</span>
+                                {% else %}
+                                <span class="badge bg-secondary">{{ alert.alert_type }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if alert.severity == 'critical' %}
+                                <span class="text-danger"><i class="fas fa-exclamation-triangle me-1"></i>严重</span>
+                                {% elif alert.severity == 'warning' %}
+                                <span class="text-warning"><i class="fas fa-exclamation-circle me-1"></i>警告</span>
+                                {% elif alert.severity == 'info' %}
+                                <span class="text-info"><i class="fas fa-info-circle me-1"></i>提示</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if alert.device %}
+                                <div>设备: {{ alert.device.name }}</div>
+                                {% endif %}
+                                {% if alert.policy %}
+                                <div>策略: {{ alert.policy.name }}</div>
+                                {% endif %}
+                            </td>
+                            <td>{{ alert.details }}</td>
+                            <td>
+                                {% if alert.status == 'new' %}
+                                <span class="badge bg-danger">新建</span>
+                                {% elif alert.status == 'acknowledged' %}
+                                <span class="badge bg-warning">已确认</span>
+                                {% elif alert.status == 'resolved' %}
+                                <span class="badge bg-success">已解决</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="btn-group">
+                                    <button type="button" class="btn btn-sm btn-outline-primary" 
+                                            data-bs-toggle="modal" 
+                                            data-bs-target="#alertDetailModal"
+                                            data-alert-id="{{ alert.id }}">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                    {% if alert.status == 'new' %}
+                                    <button type="button" class="btn btn-sm btn-outline-warning acknowledge-alert"
+                                            data-alert-id="{{ alert.id }}">
+                                        <i class="fas fa-check"></i>
+                                    </button>
+                                    {% elif alert.status == 'acknowledged' %}
+                                    <button type="button" class="btn btn-sm btn-outline-success resolve-alert"
+                                            data-alert-id="{{ alert.id }}">
+                                        <i class="fas fa-check-double"></i>
+                                    </button>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-5">
+                <div class="mb-3">
+                    <i class="fas fa-check-circle fa-3x text-success"></i>
+                </div>
+                <h5 class="text-muted">暂无告警数据</h5>
+                <p class="text-muted small">太棒了！目前没有任何告警需要处理</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- 告警详情模态框 -->
+<div class="modal fade" id="alertDetailModal" tabindex="-1" aria-labelledby="alertDetailModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="alertDetailModalLabel">告警详情</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info">
+                    <i class="fas fa-spinner fa-spin me-2"></i>正在加载告警详情...
+                </div>
+                <div id="alertDetail" style="display: none;">
+                    <!-- 告警详情将通过JS填充 -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                <button type="button" class="btn btn-warning" id="acknowledgeBtn">确认告警</button>
+                <button type="button" class="btn btn-success" id="resolveBtn">标记为已解决</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // 刷新按钮
+        document.getElementById('refreshBtn').addEventListener('click', function() {
+            location.reload();
+        });
+        
+        // 告警详情模态框处理
+        const alertDetailModal = document.getElementById('alertDetailModal');
+        if (alertDetailModal) {
+            alertDetailModal.addEventListener('show.bs.modal', function(event) {
+                const button = event.relatedTarget;
+                const alertId = button.getAttribute('data-alert-id');
+                
+                // 在这里加载告警详情
+                document.querySelector('#alertDetail').innerHTML = '告警ID: ' + alertId;
+                document.querySelector('#alertDetail').style.display = 'block';
+                document.querySelector('.alert-info').style.display = 'none';
+                
+                // 设置按钮状态
+                const acknowledgeBtn = document.getElementById('acknowledgeBtn');
+                const resolveBtn = document.getElementById('resolveBtn');
+                
+                // 根据告警状态设置按钮可见性
+                const status = button.closest('tr').querySelector('td:nth-child(6) .badge').textContent;
+                
+                acknowledgeBtn.style.display = (status === '新建') ? 'block' : 'none';
+                resolveBtn.style.display = (status === '已确认') ? 'block' : 'none';
+                
+                // 设置确认按钮点击事件
+                acknowledgeBtn.onclick = function() {
+                    acknowledgeAlert(alertId);
+                };
+                
+                // 设置解决按钮点击事件
+                resolveBtn.onclick = function() {
+                    resolveAlert(alertId);
+                };
+            });
+        }
+        
+        // 确认告警按钮
+        const acknowledgeButtons = document.querySelectorAll('.acknowledge-alert');
+        acknowledgeButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const alertId = this.getAttribute('data-alert-id');
+                acknowledgeAlert(alertId);
+            });
+        });
+        
+        // 解决告警按钮
+        const resolveButtons = document.querySelectorAll('.resolve-alert');
+        resolveButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const alertId = this.getAttribute('data-alert-id');
+                resolveAlert(alertId);
+            });
+        });
+        
+        // 确认告警函数
+        function acknowledgeAlert(alertId) {
+            if (confirm('确定要确认此告警吗？')) {
+                alert('已确认告警: ' + alertId);
+                // TODO: 实现实际的告警确认逻辑
+                // 可以通过AJAX调用后端API
+            }
+        }
+        
+        // 解决告警函数
+        function resolveAlert(alertId) {
+            if (confirm('确定要将此告警标记为已解决吗？')) {
+                alert('已解决告警: ' + alertId);
+                // TODO: 实现实际的告警解决逻辑
+                // 可以通过AJAX调用后端API
+            }
+        }
+    });
+</script>
+{% endblock %} 

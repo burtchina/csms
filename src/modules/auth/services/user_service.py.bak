@@ -1,0 +1,120 @@
+ˇ˛#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+"""
+(u7bg°R!jWWˇ–cõO(u7b¯vsQÑvN°R;êëèYt
+"""
+
+from typing import Dict, Any, Tuple
+from src.modules.auth.models import User
+from src.db import db
+
+
+class UserService:
+    """(u7bg°R{|"""
+    
+    def get_user_by_id(self, user_id: int) -> Tuple[bool, Any]:
+        """ê«èID∑É÷S(u7b
+        
+        Args:
+            user_id: (u7bID
+            
+        Returns:
+            Tuple[bool, Any]: (büR∂r`, (u7b˘[aåbïÔã·Oo`)
+        """
+        try:
+            user = User.query.get(user_id)
+            if not user:
+                return False, "(u7bNX[(W"
+            return True, user
+        except Exception as e:
+            return False, str(e)
+    
+    def get_user_by_username(self, username: str) -> Tuple[bool, Any]:
+        """ê«è(u7bT∑É÷S(u7b
+        
+        Args:
+            username: (u7bT
+            
+        Returns:
+            Tuple[bool, Any]: (büR∂r`, (u7b˘[aåbïÔã·Oo`)
+        """
+        try:
+            user = User.query.filter_by(username=username).first()
+            if not user:
+                return False, "(u7bNX[(W"
+            return True, user
+        except Exception as e:
+            return False, str(e)
+    
+    def update_user(self, user_id: int, user_data: Dict[str, Any]) -> Tuple[bool, Any]:
+        """Ùf∞e(u7b·Oo`
+        
+        Args:
+            user_id: (u7bID
+            user_data: Ùf∞epenc
+            
+        Returns:
+            Tuple[bool, Any]: (büR∂r`, (u7b˘[aåbïÔã·Oo`)
+        """
+        try:
+            success, result = self.get_user_by_id(user_id)
+            if not success:
+                return False, result
+            
+            user = result
+            
+            for key, value in user_data.items():
+                if hasattr(user, key):
+                    setattr(user, key, value)
+            
+            db.session.commit()
+            return True, user
+        except Exception as e:
+            db.session.rollback()
+            return False, str(e)
+    
+    def create_user(self, user_data: Dict[str, Any]) -> Tuple[bool, Any]:
+        """R˙^(u7b
+        
+        Args:
+            user_data: (u7bpenc
+            
+        Returns:
+            Tuple[bool, Any]: (büR∂r`, (u7b˘[aåbïÔã·Oo`)
+        """
+        try:
+            # ¿hÂg(u7bT/f&TÚ]X[(W
+            success, result = self.get_user_by_username(user_data.get('username', ''))
+            if success:
+                return False, "(u7bTÚ]X[(W"
+            
+            user = User(**user_data)
+            db.session.add(user)
+            db.session.commit()
+            return True, user
+        except Exception as e:
+            db.session.rollback()
+            return False, str(e)
+    
+    def delete_user(self, user_id: int) -> Tuple[bool, Any]:
+        """ Rdñ(u7b
+        
+        Args:
+            user_id: (u7bID
+            
+        Returns:
+            Tuple[bool, Any]: (büR∂r`,  Rdñ”~úg·Oo`)
+        """
+        try:
+            success, result = self.get_user_by_id(user_id)
+            if not success:
+                return False, result
+            
+            user = result
+            db.session.delete(user)
+            db.session.commit()
+            return True, "(u7b RdñbüR"
+        except Exception as e:
+            db.session.rollback()
+            return False, str(e)
