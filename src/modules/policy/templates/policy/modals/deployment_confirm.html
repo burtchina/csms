@@ -1,0 +1,146 @@
+{# 
+部署确认模态框组件
+用途：显示部署确认对话框，让用户确认部署策略到选定设备
+参数：
+  - policy: 策略对象，包含策略ID、名称等信息
+调用方式: {% include "policy/modals/deployment_confirm.html" %}
+#}
+
+<!-- 极简版部署确认对话框（完全重写，避免Bootstrap模态框问题） -->
+<div id="simpleDeploy" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 9999;">
+  <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: white; padding: 20px; border-radius: 8px; width: 450px; box-shadow: 0 5px 15px rgba(0,0,0,.5);">
+    <div style="margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;">
+      <h5 style="margin: 0; font-size: 1.25rem;">确认部署</h5>
+      <button id="simpleCloseBtn" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; font-weight: bold;">&times;</button>
+    </div>
+    
+    <div style="margin-bottom: 20px;">
+      <p>您确定要将策略 <strong>{{ policy.name }}</strong> 部署到以下设备吗？</p>
+      <div style="background-color: #fff3cd; border: 1px solid #ffeeba; padding: 12px; border-radius: 4px; margin: 10px 0;">
+        <i class="fas fa-exclamation-triangle" style="color: #856404; margin-right: 8px;"></i>
+        部署后策略将立即生效，可能会影响设备运行和网络连接。
+      </div>
+      <h6 style="margin-top: 15px; margin-bottom: 10px;">选中的设备：</h6>
+      <ul id="selectedDevicesConfirmList" style="margin-top: 0; padding-left: 25px;"></ul>
+    </div>
+    
+    <div style="display: flex; justify-content: flex-end; gap: 10px;">
+      <button id="simpleCancelBtn" style="padding: 8px 16px; background-color: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">取消</button>
+      <button id="simpleConfirmBtn" style="padding: 8px 16px; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">确认部署</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    // DOM元素
+    const simpleDialog = document.getElementById('simpleDeploy');
+    const closeBtn = document.getElementById('simpleCloseBtn');
+    const cancelBtn = document.getElementById('simpleCancelBtn');
+    const confirmBtn = document.getElementById('simpleConfirmBtn');
+    const devicesList = document.getElementById('selectedDevicesConfirmList');
+    
+    // 确保页面上的"部署策略"按钮点击时显示此对话框
+    const deployBtn = document.getElementById('confirmBtn');
+    if (deployBtn) {
+      deployBtn.addEventListener('click', function() {
+        // 显示对话框前先更新设备列表
+        updateSelectedDevicesList();
+        simpleDialog.style.display = 'block';
+        // 锁定背景滚动
+        document.body.style.overflow = 'hidden';
+      });
+    }
+    
+    // 关闭按钮事件
+    if (closeBtn) {
+      closeBtn.addEventListener('click', closeDialog);
+    }
+    
+    // 取消按钮事件
+    if (cancelBtn) {
+      cancelBtn.addEventListener('click', closeDialog);
+    }
+    
+    // 确认按钮事件
+    if (confirmBtn) {
+      confirmBtn.addEventListener('click', function() {
+        // 显示加载状态
+        confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 部署中...';
+        confirmBtn.style.opacity = '0.7';
+        confirmBtn.disabled = true;
+        
+        // 提交表单
+        const deployForm = document.getElementById('deployForm');
+        if (deployForm) {
+          deployForm.submit();
+        }
+        
+        // 关闭对话框
+        closeDialog();
+      });
+    }
+    
+    // 关闭对话框函数
+    function closeDialog() {
+      simpleDialog.style.display = 'none';
+      document.body.style.overflow = '';
+      
+      // 重置确认按钮状态
+      if (confirmBtn) {
+        confirmBtn.innerHTML = '确认部署';
+        confirmBtn.style.opacity = '1';
+        confirmBtn.disabled = false;
+      }
+    }
+    
+    // 更新设备列表
+    function updateSelectedDevicesList() {
+      if (!devicesList) return;
+      
+      // 清空列表
+      devicesList.innerHTML = '';
+      
+      // 获取所有选中设备
+      const checkboxes = document.querySelectorAll('input[name="device_ids"]:checked');
+      
+      if (checkboxes.length > 0) {
+        checkboxes.forEach(checkbox => {
+          const deviceId = checkbox.value;
+          const deviceCard = document.querySelector(`.device-card[data-device-id="${deviceId}"]`);
+          const deviceName = deviceCard ? 
+            deviceCard.querySelector('.card-title').textContent.trim() : 
+            `设备 ${deviceId}`;
+          
+          const li = document.createElement('li');
+          li.textContent = deviceName;
+          devicesList.appendChild(li);
+        });
+      } else {
+        const li = document.createElement('li');
+        li.textContent = '未选择任何设备';
+        devicesList.appendChild(li);
+      }
+    }
+    
+    // 为按钮添加悬停效果
+    const buttons = [closeBtn, cancelBtn, confirmBtn];
+    buttons.forEach(btn => {
+      if (btn) {
+        btn.addEventListener('mouseover', function() {
+          this.style.opacity = '0.9';
+        });
+        btn.addEventListener('mouseout', function() {
+          this.style.opacity = '1';
+        });
+      }
+    });
+    
+    // ESC键关闭对话框
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' && simpleDialog.style.display === 'block') {
+        closeDialog();
+      }
+    });
+  });
+</script> 

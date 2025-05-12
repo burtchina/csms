@@ -1,0 +1,73 @@
+{# 
+部署结果模态框组件
+用途：显示策略部署结果，包括成功/失败状态和详细信息
+参数：
+  - policy: 策略对象，包含策略ID、名称等信息
+  - result_html: 部署结果HTML内容，由后端生成
+调用方式: {% include "policy/modals/result_modal.html" %}
+#}
+
+<!-- 部署结果模态框 -->
+<div class="modal fade" id="deployResultModal" tabindex="-1" aria-labelledby="deployResultModalLabel" aria-hidden="true" data-position-fixed-done="true">
+    <div class="modal-dialog modal-lg" data-position-fixed="true" data-position-fixed-done="true">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deployResultModalLabel">部署结果</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
+            </div>
+            <div class="modal-body" id="deployResultContent">
+                {% if result_html %}
+                    {{ result_html|safe }}
+                {% else %}
+                    <!-- 部署结果将通过JavaScript动态填充 -->
+                    <div class="alert alert-info">
+                        <i class="fas fa-spinner fa-spin me-2"></i>正在加载部署结果...
+                    </div>
+                {% endif %}
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                <a href="{{ url_for('policy_view.detail', policy_id=policy.id) }}" class="btn btn-primary">
+                    查看策略详情
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 部署结果模态框的JavaScript -->
+<script>
+    // 从服务器端获取部署结果标志
+    var hasDeploymentResults = "{% if deployment_results %}true{% else %}false{% endif %}";
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        // 获取模态框元素
+        const resultModal = document.getElementById('deployResultModal');
+        
+        if (resultModal) {
+            // 标记已经设置了固定位置，避免重复设置
+            resultModal.setAttribute('data-position-fixed-done', 'true');
+            
+            // 如果URL中有部署结果参数，提取并显示
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.has('deploy_result')) {
+                const deployResult = urlParams.get('deploy_result');
+                
+                // 延迟执行，确保DOM已完全加载
+                setTimeout(() => {
+                    document.getElementById('deployResultContent').innerHTML = deployResult;
+                    const deployResultModal = new bootstrap.Modal(resultModal);
+                    deployResultModal.show();
+                }, 500);
+            }
+            // 检查是否需要自动显示部署结果
+            else if (hasDeploymentResults === "true") {
+                // 延迟显示，确保页面完全加载
+                setTimeout(() => {
+                    const deployResultModal = new bootstrap.Modal(resultModal);
+                    deployResultModal.show();
+                }, 500);
+            }
+        }
+    });
+</script> 

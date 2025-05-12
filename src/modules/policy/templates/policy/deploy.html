@@ -1,11 +1,59 @@
 {% extends "base.html" %}
 
+{% block title %}部署策略 | 校园安全管理系统{% endblock %}
+
+{% block head %}
+<style>
+    .device-card {
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    .device-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    .device-card.selected {
+        border: 2px solid #28a745;
+    }
+    .device-card.deployed {
+        border: 2px solid #17a2b8;
+    }
+    .device-status {
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        margin-right: 5px;
+    }
+    .status-active {
+        background-color: #28a745;
+    }
+    .status-offline {
+        background-color: #dc3545;
+    }
+    .status-warning {
+        background-color: #ffc107;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="container mt-4">
+<div class="container-fluid">
+    <!-- 面包屑导航 -->
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('index') }}">首页</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('policy_view.index') }}">安全策略管理</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('policy_view.detail', policy_id=policy.id) }}">策略详情</a></li>
+            <li class="breadcrumb-item active" aria-current="page">部署策略</li>
+        </ol>
+    </nav>
+
+    <!-- 部署页头部 -->
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1 class="mb-0">部署策略</h1>
+        <h1 class="h3 mb-0 text-gray-800">部署策略: {{ policy.name }}</h1>
         <div>
-            <a href="{{ url_for('policy_view.detail', policy_id=policy.id) }}" class="btn btn-secondary me-2">
+            <a href="{{ url_for('policy_view.detail', policy_id=policy.id) }}" class="btn btn-outline-secondary">
                 <i class="fas fa-arrow-left me-1"></i>返回详情
             </a>
         </div>
@@ -23,86 +71,70 @@
         {% endif %}
     {% endwith %}
 
-    <div class="row mb-4">
-        <div class="col-md-12">
-            <div class="alert alert-info">
-                <h5><i class="fas fa-info-circle me-2"></i>部署信息</h5>
-                <p class="mb-0">您正在部署策略: <strong>{{ policy.name }}</strong> (ID: {{ policy.id }})</p>
-                <p class="mb-0">类型: <span class="badge bg-info">{{ policy.type }}</span></p>
-                <p class="mb-0">状态: 
-                    {% if policy.status == 'active' %}
-                        <span class="badge bg-success">已激活</span>
-                    {% elif policy.status == 'draft' %}
-                        <span class="badge bg-warning">草稿</span>
-                    {% elif policy.status == 'deleted' %}
-                        <span class="badge bg-danger">已删除</span>
-                    {% else %}
-                        <span class="badge bg-secondary">{{ policy.status }}</span>
-                    {% endif %}
-                </p>
-            </div>
-        </div>
-    </div>
-
-    <form id="deployForm" method="POST" action="{{ url_for('policy_view.deploy', policy_id=policy.id) }}">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <div class="card mb-4">
-            <div class="card-header bg-primary text-white">
-                <h5 class="card-title mb-0"><i class="fas fa-server me-2"></i>选择部署设备</h5>
-            </div>
-            <div class="card-body">
+    <!-- 部署表单 -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <form id="deployForm" method="POST" action="{{ url_for('policy_view.deploy', policy_id=policy.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                
+                <!-- 部署信息提示 -->
+                <div class="alert alert-info mb-4">
+                    <div class="d-flex">
+                        <div class="me-3">
+                            <i class="fas fa-info-circle fa-2x"></i>
+                        </div>
+                        <div>
+                            <h5 class="alert-heading">部署说明</h5>
+                            <p class="mb-0">您正在将策略 <strong>{{ policy.name }}</strong> 部署到设备上。部署后，策略将立即生效，请确保配置正确无误。</p>
+                            {% if deployed_device_ids %}
+                            <hr>
+                            <p class="mb-0">
+                                <i class="fas fa-exclamation-triangle me-1 text-warning"></i>
+                                注意：有标记为"已部署"的设备表示该策略已经部署到这些设备上，重新部署将覆盖现有配置。
+                            </p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 设备选择部分 -->
                 {% if devices %}
-                    <div class="row">
-                        {% for device in devices %}
-                            <div class="col-md-4 mb-3">
-                                <div class="card device-card h-100 {% if device.status == 'online' %}border-success{% elif device.status == 'offline' %}border-danger{% endif %}" style="cursor: pointer;">
-                                    <div class="card-body">
-                                        <div class="form-check">
-                                            <input class="form-check-input" type="checkbox" name="device_ids" value="{{ device.id }}" id="device{{ device.id }}">
-                                            <label class="form-check-label w-100" for="device{{ device.id }}">
-                                                <h5 class="mb-1">{{ device.name }}</h5>
-                                                <p class="mb-1"><small>类型: {{ device.type }}</small></p>
-                                                <p class="mb-0"><small>IP地址: {{ device.ip_address }}</small></p>
-                                                <p class="mb-0">
-                                                    {% if device.status == 'online' %}
-                                                        <span class="badge bg-success">在线</span>
-                                                    {% elif device.status == 'offline' %}
-                                                        <span class="badge bg-danger">离线</span>
-                                                    {% else %}
-                                                        <span class="badge bg-secondary">{{ device.status }}</span>
-                                                    {% endif %}
-                                                </p>
-                                            </label>
+                <h5 class="mb-3">选择部署设备</h5>
+                <div class="row">
+                    {% for device in devices %}
+                    <div class="col-md-4 mb-4">
+                        <div class="card device-card{% if device.id|string in deployed_device_ids %} deployed{% endif %}" data-device-id="{{ device.id }}">
+                            <div class="card-body">
+                                <div class="form-check">
+                                    <input class="form-check-input device-checkbox" type="checkbox" name="device_ids" value="{{ device.id }}" id="device{{ device.id }}" {% if device.id|string in deployed_device_ids %}checked{% endif %}>
+                                    <label class="form-check-label" for="device{{ device.id }}">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <h5 class="card-title mb-0">{{ device.name }}</h5>
+                                            <span class="device-status status-{{ device.status|lower }}"></span>
                                         </div>
-                                    </div>
+                                        <p class="card-text text-muted mt-2">
+                                            <small>型号: {{ device.model }}</small><br>
+                                            <small>IP: {{ device.ip_address }}</small>
+                                        </p>
+                                        {% if device.id|string in deployed_device_ids %}
+                                        <span class="badge bg-info">已部署</span>
+                                        {% endif %}
+                                    </label>
                                 </div>
                             </div>
-                        {% endfor %}
+                        </div>
                     </div>
-                    <div class="mt-3">
-                        <button type="button" id="selectAllBtn" class="btn btn-sm btn-outline-primary me-2">全选</button>
-                        <button type="button" id="deselectAllBtn" class="btn btn-sm btn-outline-secondary">取消全选</button>
-                    </div>
-                {% else %}
-                    <div class="alert alert-warning">
-                        <i class="fas fa-exclamation-triangle me-2"></i>没有可用的设备
-                    </div>
-                {% endif %}
-            </div>
-        </div>
+                    {% endfor %}
+                </div>
 
-        <div class="card mb-4">
-            <div class="card-header bg-info text-white">
-                <h5 class="card-title mb-0"><i class="fas fa-cog me-2"></i>部署选项</h5>
-            </div>
-            <div class="card-body">
-                <div class="row">
+                <div class="row mb-4">
                     <div class="col-md-6">
                         <div class="form-check mb-3">
-                            <input class="form-check-input" type="checkbox" id="verifyBeforeDeploy" name="verify_before_deploy" checked>
+                            <input class="form-check-input" type="checkbox" value="1" id="verifyBeforeDeploy" name="verify_before_deploy" checked>
                             <label class="form-check-label" for="verifyBeforeDeploy">
-                                部署前验证策略
+                                部署前验证配置
                             </label>
+                            <div class="form-text">在部署前检查策略配置是否符合所选设备要求</div>
                         </div>
                         <div class="form-check mb-3">
                             <input class="form-check-input" type="checkbox" id="verifyAfterDeploy" name="verify_after_deploy" checked>
@@ -113,233 +145,130 @@
                     </div>
                     <div class="col-md-6">
                         <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" value="1" id="backupBeforeDeploy" name="backup_before_deploy" checked>
+                            <label class="form-check-label" for="backupBeforeDeploy">
+                                部署前备份配置
+                            </label>
+                            <div class="form-text">在部署前备份设备当前配置，以便需要时回滚</div>
+                        </div>
+                        <div class="form-check mb-3">
                             <input class="form-check-input" type="checkbox" id="enableRollback" name="enable_rollback" checked>
                             <label class="form-check-label" for="enableRollback">
                                 启用自动回滚（部署失败时）
                             </label>
                         </div>
-                        <div class="form-check mb-3">
-                            <input class="form-check-input" type="checkbox" id="logDeployment" name="log_deployment" checked>
-                            <label class="form-check-label" for="logDeployment">
-                                记录部署日志
-                            </label>
-                        </div>
                     </div>
                 </div>
-            </div>
-        </div>
-
-        <div class="text-center">
-            <button type="button" class="btn btn-secondary me-2" data-bs-toggle="modal" data-bs-target="#previewModal">
-                <i class="fas fa-eye me-1"></i>预览策略配置
-            </button>
-            <button type="submit" class="btn btn-success btn-lg" id="deployBtn" disabled>
-                <i class="fas fa-upload me-1"></i>部署策略
-            </button>
-        </div>
-    </form>
-</div>
-
-<!-- 预览模态框 -->
-<div class="modal fade" id="previewModal" tabindex="-1" aria-labelledby="previewModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg" data-position-fixed="true">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="previewModalLabel">策略配置预览</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <pre class="p-3 bg-light rounded"><code>{{ policy.config | tojson(indent=2) }}</code></pre>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- 部署结果模态框 -->
-<div class="modal fade" id="deployResultModal" tabindex="-1" aria-labelledby="deployResultModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg" data-position-fixed="true">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="deployResultModalLabel">部署结果</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body" id="deployResultContent">
-                {% if result_html %}
-                    {{ result_html|safe }}
+                
+                <!-- 部署按钮 -->
+                <div class="d-flex justify-content-end">
+                    <button type="button" class="btn btn-outline-secondary me-2" id="cancelBtn">取消</button>
+                    <button type="button" class="btn btn-success" id="confirmBtn" disabled>
+                        <i class="fas fa-upload me-1"></i>部署策略
+                    </button>
+                </div>
+                
+                <!-- 引入部署确认模态框组件 -->
+                {% include "policy/modals/deployment_confirm.html" %}
+                
                 {% else %}
-                    <!-- 部署结果将通过JavaScript动态填充 -->
-                    <div class="alert alert-info">
-                        <i class="fas fa-spinner fa-spin me-2"></i>正在加载部署结果...
-                    </div>
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle me-2"></i>没有可用的设备，请先添加设备。
+                </div>
                 {% endif %}
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
-                <a href="{{ url_for('policy_view.detail', policy_id=policy.id) }}" class="btn btn-primary">
-                    查看策略详情
-                </a>
-            </div>
+            </form>
         </div>
     </div>
+    
+    {% if deployment_results %}
+    <!-- 部署结果 -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-primary text-white">
+            <h5 class="card-title mb-0"><i class="fas fa-clipboard-list me-2"></i>部署结果</h5>
+        </div>
+        <div class="card-body">
+            {{ result_html | safe }}
+        </div>
+    </div>
+    {% endif %}
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // 部署按钮启用/禁用逻辑
-        const checkboxes = document.querySelectorAll('input[name="device_ids"]');
-        const deployBtn = document.getElementById('deployBtn');
-        const selectAllBtn = document.getElementById('selectAllBtn');
-        const deselectAllBtn = document.getElementById('deselectAllBtn');
-        
-        // 确保模态框位置固定
-        function fixModalDialogs() {
-            const modalDialogs = document.querySelectorAll('.modal-dialog');
-            modalDialogs.forEach(dialog => {
-                if (!dialog.hasAttribute('data-position-fixed')) {
-                    dialog.style.position = 'fixed';
-                    dialog.style.top = '30%';
-                    dialog.style.left = '50%';
-                    dialog.style.transform = 'translate(-50%, -30%)';
-                    dialog.setAttribute('data-position-fixed', 'true');
-                }
-            });
-        }
-        
-        // 在DOM加载后和窗口大小改变时应用修复
-        fixModalDialogs();
-        window.addEventListener('resize', fixModalDialogs);
-        
-        // 为所有模态框添加显示前的事件监听器
-        const modals = document.querySelectorAll('.modal');
-        modals.forEach(modal => {
-            modal.addEventListener('show.bs.modal', function() {
-                const dialog = this.querySelector('.modal-dialog');
-                dialog.style.position = 'fixed';
-                dialog.style.top = '30%';
-                dialog.style.left = '50%';
-                dialog.style.transform = 'translate(-50%, -30%)';
-                dialog.setAttribute('data-position-fixed', 'true');
-            });
-        });
-        
-        function updateDeployButtonState() {
-            let hasChecked = false;
-            checkboxes.forEach(checkbox => {
-                if (checkbox.checked) {
-                    hasChecked = true;
-                }
-            });
-            
-            deployBtn.disabled = !hasChecked;
-        }
-        
-        checkboxes.forEach(checkbox => {
-            checkbox.addEventListener('change', updateDeployButtonState);
-        });
-        
-        // 全选/取消全选按钮
-        if (selectAllBtn) {
-            selectAllBtn.addEventListener('click', function() {
-                checkboxes.forEach(checkbox => {
-                    checkbox.checked = true;
-                });
-                updateDeployButtonState();
-            });
-        }
-        
-        if (deselectAllBtn) {
-            deselectAllBtn.addEventListener('click', function() {
-                checkboxes.forEach(checkbox => {
-                    checkbox.checked = false;
-                });
-                updateDeployButtonState();
-            });
-        }
-        
-        // 表单提交前确认
-        document.getElementById('deployForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            // 获取选中的设备数量
-            let selectedDevices = 0;
-            checkboxes.forEach(checkbox => {
-                if (checkbox.checked) {
-                    selectedDevices++;
-                }
-            });
-            
-            // 构建确认消息
-            let confirmMessage = `确定要将策略部署到 ${selectedDevices} 个设备吗？此操作将修改所选设备的配置。`;
-            
-            if (confirm(confirmMessage)) {
-                // 显示加载提示
-                deployBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>正在部署...';
-                deployBtn.disabled = true;
-                
-                // 提交表单
-                this.submit();
-            }
-        });
-        
-        // 设备卡片点击事件
         const deviceCards = document.querySelectorAll('.device-card');
+        const deviceCheckboxes = document.querySelectorAll('.device-checkbox');
+        const confirmBtn = document.getElementById('confirmBtn');
+        const cancelBtn = document.getElementById('cancelBtn');
+        
+        // 绑定取消按钮事件
+        if (cancelBtn) {
+            cancelBtn.addEventListener('click', function() {
+                window.location.href = "{{ url_for('policy_view.detail', policy_id=policy.id) }}";
+            });
+        }
+        
+        // 更新已选择设备列表
+        function updateSelectedDevices() {
+            const selectedDevices = Array.from(deviceCheckboxes)
+                .filter(checkbox => checkbox.checked)
+                .map(checkbox => {
+                    const deviceId = checkbox.value;
+                    const deviceCard = document.querySelector(`.device-card[data-device-id="${deviceId}"]`);
+                    return deviceCard.querySelector('.card-title').textContent;
+                });
+            
+            // 启用或禁用确认按钮
+            confirmBtn.disabled = selectedDevices.length === 0;
+        }
+        
+        // 点击卡片选择设备
         deviceCards.forEach(card => {
             card.addEventListener('click', function(e) {
-                // 如果不是点击在复选框上，则触发复选框的点击
-                if (!e.target.classList.contains('form-check-input')) {
-                    const checkbox = this.querySelector('input[type="checkbox"]');
+                // 防止点击复选框时触发两次事件
+                if (e.target.type !== 'checkbox') {
+                    const checkbox = this.querySelector('.device-checkbox');
                     checkbox.checked = !checkbox.checked;
-                    checkbox.dispatchEvent(new Event('change'));
                     
-                    // 添加视觉反馈
+                    // 更新选中状态样式
                     if (checkbox.checked) {
-                        this.classList.add('bg-light');
+                        this.classList.add('selected');
                     } else {
-                        this.classList.remove('bg-light');
+                        this.classList.remove('selected');
                     }
+                    
+                    updateSelectedDevices();
                 }
             });
-            
-            // 初始化卡片状态
-            const checkbox = card.querySelector('input[type="checkbox"]');
-            if (checkbox.checked) {
-                card.classList.add('bg-light');
-            }
         });
         
-        // 如果存在部署结果，自动显示模态框
-        if (typeof deploymentResults !== 'undefined' && deploymentResults) {
-            setTimeout(() => {
-                const deployResultModal = new bootstrap.Modal(document.getElementById('deployResultModal'));
-                deployResultModal.show();
-                fixModalDialogs(); // 再次确保模态框位置固定
-            }, 500);
-        }
+        // 复选框改变事件
+        deviceCheckboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', function() {
+                const card = this.closest('.device-card');
+                
+                // 更新选中状态样式
+                if (this.checked) {
+                    card.classList.add('selected');
+                } else {
+                    card.classList.remove('selected');
+                }
+                
+                updateSelectedDevices();
+            });
+        });
         
-        // 如果URL中有部署结果参数，显示部署结果模态框
-        const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.has('deploy_result')) {
-            const deployResult = urlParams.get('deploy_result');
-            
-            setTimeout(() => {
-                document.getElementById('deployResultContent').innerHTML = deployResult;
-                const deployResultModal = new bootstrap.Modal(document.getElementById('deployResultModal'));
-                deployResultModal.show();
-                fixModalDialogs(); // 再次确保模态框位置固定
-            }, 500);
-        }
+        // 初始更新
+        updateSelectedDevices();
+        
+        // 设置已部署设备的初始选中状态
+        deviceCheckboxes.forEach(checkbox => {
+            if (checkbox.checked) {
+                const card = checkbox.closest('.device-card');
+                card.classList.add('selected');
+            }
+        });
     });
 </script>
-
-{% if deployment_results %}
-<script>
-    // 在全局作用域定义部署结果变量
-    const deploymentResults = true;
-</script>
-{% endif %}
 {% endblock %} 

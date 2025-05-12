@@ -159,42 +159,8 @@ def delete(id):
 @login_required
 def deploy(id):
     """策略部署页面"""
-    policy = Policy.query.get_or_404(id)
-    
-    if request.method == 'POST':
-        try:
-            device_ids = request.form.getlist('device_ids')
-            
-            if not device_ids:
-                flash('请选择至少一个设备进行部署', 'warning')
-                return redirect(url_for('policy.deploy', id=id))
-            
-            # 部署策略
-            result = deploy_service.deploy_policy(id, device_ids, current_user.id)
-            
-            if result['success']:
-                flash('策略部署任务已提交，请查看部署状态', 'success')
-                return redirect(url_for('policy.detail', id=id))
-            else:
-                flash(f'策略部署失败: {result["message"]}', 'danger')
-        except Exception as e:
-            flash(f'发生错误: {str(e)}', 'danger')
-            db.session.rollback()
-    
-    # 获取可用设备列表
-    devices = Device.query.filter_by(status='active').all()
-    
-    # 获取已部署设备列表
-    deployed_devices = db.session.query(Device.id).join(
-        PolicyDeployment, PolicyDeployment.device_id == Device.id
-    ).filter(
-        PolicyDeployment.policy_id == id,
-        PolicyDeployment.status == 'success'
-    ).all()
-    
-    deployed_device_ids = [d.id for d in deployed_devices]
-    
-    return render_template('policy/deploy.html', policy=policy, devices=devices, deployed_device_ids=deployed_device_ids)
+    # 重定向到新的部署视图
+    return redirect(url_for('policy_view.deploy', policy_id=id))
 
 # 策略回滚
 @policy_bp.route('/deployment/<int:id>/rollback', methods=['POST'])

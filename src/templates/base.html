@@ -216,6 +216,9 @@
             }
         });
     </script>
+    <!-- 模态框管理器 -->
+    <script src="{{ url_for('static', filename='js/modal_manager.js') }}?v={{ range(1, 10000) | random }}"></script>
+    <!-- 页面特定JS -->
     {% block scripts %}{% endblock %}
 </body>
 </html> 
