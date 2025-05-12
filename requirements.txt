@@ -7,6 +7,7 @@ Flask-WTF==1.0.0
 Flask-Cors==3.0.10
 Flask-JWT-Extended==4.4.4
 werkzeug==2.0.3
+itsdangerous==2.0.1
 
 # 数据库
 SQLAlchemy==1.4.23
@@ -18,6 +19,8 @@ alembic==1.7.1
 pysnmp==4.4.12
 paramiko==2.8.0
 netmiko==3.4.0
+pexpect==4.8.0
+scp==0.14.5
 
 # 缓存
 redis==3.5.3
@@ -26,20 +29,27 @@ redis==3.5.3
 PyJWT==2.1.0
 bcrypt==3.2.0
 passlib==1.7.4
-itsdangerous==2.0.1
 
 # 任务调度与队列
 celery==5.2.7
 APScheduler==3.8.0
 
-# 工具库
-python-dotenv==0.19.0
-requests==2.26.0
-numpy>=1.20.0
+# 数据处理与可视化
+pandas==1.3.3
+numpy==1.21.2
+matplotlib==3.4.3
+plotly==5.3.1
+
+# JSON处理与验证
 jsonschema==4.17.3
-# pandas==1.3.3  # 已安装更新版本2.2.3
-matplotlib==3.10.1
+
+# 网络与IP处理
 ipaddress==1.0.23
+requests==2.26.0
+
+# 表单处理
+WTForms==2.3.3
+email-validator==1.1.3
 
 # 测试工具
 pytest==6.2.5
@@ -50,26 +60,18 @@ coverage==6.0.1
 black==21.9b0
 flake8==3.9.2
 isort==5.9.3
-
-# 数据处理
-pandas==1.3.3
-numpy==1.21.2
-
-# 表单处理
-WTForms==2.3.3
-email-validator==1.1.3
-
-# 数据可视化
-plotly==5.3.1
-matplotlib==3.4.3
+python-dotenv==0.19.0
 
 # 部署工具
 gunicorn==20.1.0
 gevent==21.8.0
 
-# SSH连接和设备管理
-pexpect==4.8.0
-scp==0.14.5
-
-# 性能监控
+# 系统监控
 psutil==5.9.0
+
+# 防火墙策略管理相关依赖
+pyyaml==6.0        # 用于策略配置文件解析
+cryptography==37.0.2  # 用于配置加密
+jinja2==3.0.3      # 用于模板渲染
+python-dateutil==2.8.2  # 用于日期处理
+click==8.0.3       # 用于命令行工具

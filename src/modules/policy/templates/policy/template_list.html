@@ -211,10 +211,9 @@
                         <label for="templateType" class="form-label">类型 <span class="text-danger">*</span></label>
                         <select class="form-select" id="templateType" required>
                             <option value="">请选择...</option>
-                            <option value="ipsec">IPSec</option>
-                            <option value="ssl">SSL VPN</option>
-                            <option value="firewall">防火墙</option>
-                            <option value="ipsec_firewall">IPSec与防火墙联动</option>
+                            <option value="allow_all">允许所有流量通过</option>
+                            <option value="ipsec_only">只允许IPSec相关协议</option>
+                            <option value="ipsec_specific_ip">允许IPSec流量和特定IP</option>
                         </select>
                     </div>
                     <div class="mb-3">

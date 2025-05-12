@@ -1,5 +1,144 @@
 # IPSec与防火墙联动策略管理变更日志
 
+## 2024-06-15 策略验证逻辑优化修复
+
+### 问题背景
+
+在使用新的策略类型（允许所有流量通过、只允许IPSec相关协议、允许IPSec流量和特定IP）时，编辑或更新策略会失败，出现"本地子网格式无效"的错误提示。这是由于这些新策略类型的验证逻辑与原有IPSec策略验证逻辑不匹配导致的。
+
+### 修复内容
+
+1. **策略验证逻辑优化**
+   - 将验证器拆分为两套验证规则：通用IPSec验证（不严格要求tunnel_settings）和传统IPSec隧道验证
+   - 修改PolicyValidator.validate_policy方法，根据不同策略类型应用不同的验证规则
+   - 优化validate_ipsec_policy方法，只在提供tunnel_settings时才验证其格式
+   - 新增validate_ipsec_tunnel_policy方法专门处理传统IPSec隧道策略
+
+2. **配置模板优化**
+   - 更新前端页面的默认配置模板，确保所有策略类型都包含必要的ipsec_settings字段
+   - 修复"允许所有流量通过"类型配置模板，添加必要的空字段
+   - 修复"只允许IPSec相关协议"类型配置模板，确保包含所有验证需要的字段
+   - 优化"允许IPSec流量和特定IP"类型的配置模板，保留tunnel_settings但不严格要求其内容
+
+3. **验证规则Schema优化**
+   - 创建两套JSON Schema：IPSEC_POLICY_SCHEMA和IPSEC_TUNNEL_POLICY_SCHEMA
+   - IPSEC_POLICY_SCHEMA不要求tunnel_settings字段，适用于新的策略类型
+   - IPSEC_TUNNEL_POLICY_SCHEMA保留对tunnel_settings的严格要求，用于传统IPSec策略
+   - 优化子网和IP地址验证逻辑，只在提供值时才进行验证
+
+### 技术细节
+
+1. **验证器调整**
+   ```python
+   # 根据策略类型选择验证方式
+   if policy_type == 'ipsec':
+       # 传统IPSec策略，需要tunnel_settings
+       return cls.validate_ipsec_tunnel_policy(config)
+   elif policy_type == 'allow_all' or policy_type == 'ipsec_only' or policy_type == 'ipsec_specific_ip':
+       # 新的IPSec联动策略类型，不严格要求tunnel_settings
+       return cls.validate_ipsec_policy(config)
+   ```
+
+2. **前端配置模板**
+   ```javascript
+   // 允许所有流量通过
+   config = JSON.parse(JSON.stringify(defaultConfig));
+   config.firewall_settings = {
+       default_action: "allow",
+       allowed_protocols: []
+   };
+   
+   // 确保包含必要字段，但不需要具体内容
+   config.ipsec_settings = {
+       authentication: {
+           method: "psk",
+           psk: ""
+       },
+       // 其他必要字段...
+   };
+   ```
+
+3. **验证逻辑优化**
+   ```python
+   # 如果存在tunnel_settings，则验证其格式
+   if 'tunnel_settings' in config:
+       tunnel = config['tunnel_settings']
+       if tunnel.get('local_subnet') and not cls._is_valid_subnet(tunnel.get('local_subnet')):
+           return False, "本地子网格式无效"
+       # 其他验证...
+   ```
+
+### 改进效果
+
+1. **功能修复**
+   - 现在可以正常创建、编辑和保存三种新策略类型
+   - 避免了无意义的tunnel_settings验证错误
+   - 保留了对传统IPSec策略的严格验证
+
+2. **用户体验提升**
+   - 减少了策略保存过程中的错误提示
+   - 简化了新策略类型的配置要求
+   - 默认配置模板更符合实际使用场景
+
+3. **代码质量提升**
+   - 遵循单一职责原则，将不同的验证逻辑分离
+   - 提高了代码的可维护性和可读性
+   - 提供了更清晰的验证规则和错误信息
+
+## 2025-05-14 实现三种预设防火墙策略模式
+
+### 更新内容
+
+1. **新增三种防火墙策略模式**
+   - 实现"未限制"模式：允许所有流量通过
+   - 实现"仅允许IPSec流量"模式：只允许IPSec相关协议
+   - 实现"仅允许IPSec流量和合作学校IP"模式：允许IPSec流量和特定IP
+
+2. **前端交互优化**
+   - 在策略创建和编辑页面添加防火墙模式选择功能
+   - 实现模式切换时动态更新防火墙配置
+   - 为每种模式提供预设配置模板
+   - 优化界面交互，提升用户体验
+
+3. **系统预设模板实现**
+   - 创建`init_policy_templates.py`脚本初始化系统预设模板
+   - 在应用启动时自动加载预设模板
+   - 为每种模式提供一个系统预设模板
+
+### 技术细节
+
+1. **前端实现**
+   - 在策略类型为"IPSec与防火墙联动"时动态显示模式选择
+   - 使用JavaScript实现模式切换时的配置动态生成
+   - 优化界面布局，提高可用性
+
+2. **后端实现**
+   - 创建系统预设模板的数据结构和初始化逻辑
+   - 修改app.py，在应用启动时调用模板初始化脚本
+   - 确保系统预设模板只初始化一次
+
+3. **配置结构优化**
+   - "未限制"模式: `{"default_action": "allow", "allowed_protocols": []}`
+   - "仅允许IPSec流量"模式: `{"default_action": "deny", "allowed_protocols": [IKE, NAT-T, ESP]}`
+   - "仅允许IPSec流量和合作学校IP"模式: 在IPSec基础上增加`source_restrictions`
+
+### 改进效果
+
+1. **提升易用性**
+   - 简化策略配置流程，用户可以直接选择预设模式
+   - 降低配置错误风险，提高策略部署成功率
+   - 提供直观的模式选择界面，减少学习成本
+
+2. **增强安全性**
+   - 标准化防火墙规则配置，避免安全漏洞
+   - 针对不同场景提供最适合的安全级别
+   - 预设模板确保关键安全规则始终存在
+
+3. **提高工作效率**
+   - 减少手动配置时间，提高管理效率
+   - 模板化配置大幅降低重复工作
+   - 标准化处理提高了跨团队协作效率
+
 ## 2025-05-13 部署确认对话框交互问题根本修复
 
 ### 问题描述

@@ -14,6 +14,89 @@ class PolicyValidator:
     # IPSec策略JSON Schema
     IPSEC_POLICY_SCHEMA = {
         "type": "object",
+        "required": ["version", "firewall_settings", "ipsec_settings"],
+        "properties": {
+            "version": {"type": "string"},
+            "firewall_settings": {
+                "type": "object",
+                "required": ["default_action", "allowed_protocols"],
+                "properties": {
+                    "default_action": {"type": "string", "enum": ["deny", "allow"]},
+                    "allowed_protocols": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "required": ["protocol"],
+                            "properties": {
+                                "protocol": {"type": "string"},
+                                "port": {"type": "integer"},
+                                "description": {"type": "string"}
+                            }
+                        }
+                    }
+                }
+            },
+            "ipsec_settings": {
+                "type": "object",
+                "required": ["authentication", "encryption", "lifetime"],
+                "properties": {
+                    "authentication": {
+                        "type": "object",
+                        "required": ["method"],
+                        "properties": {
+                            "method": {"type": "string", "enum": ["psk", "cert"]},
+                            "psk": {"type": "string"}
+                        }
+                    },
+                    "encryption": {
+                        "type": "object",
+                        "required": ["phase1", "phase2"],
+                        "properties": {
+                            "phase1": {"type": "array", "items": {"type": "string"}},
+                            "phase2": {"type": "array", "items": {"type": "string"}}
+                        }
+                    },
+                    "lifetime": {
+                        "type": "object",
+                        "required": ["phase1", "phase2"],
+                        "properties": {
+                            "phase1": {"type": "integer", "minimum": 300},
+                            "phase2": {"type": "integer", "minimum": 300}
+                        }
+                    }
+                }
+            },
+            "tunnel_settings": {
+                "type": "object",
+                "properties": {
+                    "local_subnet": {"type": "string"},
+                    "remote_subnet": {"type": "string"},
+                    "remote_gateway": {"type": "string"}
+                }
+            },
+            "source_restrictions": {
+                "type": "object",
+                "properties": {
+                    "allowed_ips": {"type": "array", "items": {"type": "string"}},
+                    "allowed_domains": {"type": "array", "items": {"type": "string"}}
+                }
+            },
+            "advanced": {
+                "type": "object",
+                "properties": {
+                    "dpd_enabled": {"type": "boolean"},
+                    "dpd_delay": {"type": "integer"},
+                    "dpd_timeout": {"type": "integer"},
+                    "nat_traversal": {"type": "boolean"},
+                    "perfect_forward_secrecy": {"type": "boolean"}
+                }
+            }
+        }
+    }
+    
+    # 传统IPSec策略JSON Schema，需要tunnel_settings
+    IPSEC_TUNNEL_POLICY_SCHEMA = {
+        "type": "object",
         "required": ["version", "firewall_settings", "ipsec_settings", "tunnel_settings"],
         "properties": {
             "version": {"type": "string"},
@@ -121,14 +204,18 @@ class PolicyValidator:
         policy_type = policy_data['type']
         config = policy_data['config']
         
-        if policy_type == 'ipsec' or policy_type == 'ipsec_firewall':
+        if policy_type == 'ipsec':
+            # 传统IPSec策略，需要tunnel_settings
+            return cls.validate_ipsec_tunnel_policy(config)
+        elif policy_type == 'allow_all' or policy_type == 'ipsec_only' or policy_type == 'ipsec_specific_ip':
+            # 新的IPSec联动策略类型，不严格要求tunnel_settings
             return cls.validate_ipsec_policy(config)
         else:
             return False, f"不支持的策略类型: {policy_type}"
     
     @classmethod
     def validate_ipsec_policy(cls, config):
-        """验证IPSec策略配置
+        """验证IPSec策略配置（不严格要求tunnel_settings）
         
         Args:
             config (dict): IPSec策略配置
@@ -139,7 +226,34 @@ class PolicyValidator:
         try:
             validate(instance=config, schema=cls.IPSEC_POLICY_SCHEMA)
             
-            # 额外的业务逻辑验证
+            # 如果存在tunnel_settings，则验证其格式
+            if 'tunnel_settings' in config:
+                tunnel = config['tunnel_settings']
+                if tunnel.get('local_subnet') and not cls._is_valid_subnet(tunnel.get('local_subnet')):
+                    return False, "本地子网格式无效"
+                if tunnel.get('remote_subnet') and not cls._is_valid_subnet(tunnel.get('remote_subnet')):
+                    return False, "远程子网格式无效"
+                if tunnel.get('remote_gateway') and not cls._is_valid_ip(tunnel.get('remote_gateway')):
+                    return False, "远程网关IP格式无效"
+            
+            return True, None
+        except ValidationError as e:
+            return False, str(e)
+    
+    @classmethod
+    def validate_ipsec_tunnel_policy(cls, config):
+        """验证需要tunnel_settings的IPSec策略配置
+        
+        Args:
+            config (dict): IPSec策略配置
+            
+        Returns:
+            tuple: (is_valid, errors)
+        """
+        try:
+            validate(instance=config, schema=cls.IPSEC_TUNNEL_POLICY_SCHEMA)
+            
+            # 验证tunnel_settings（必需项）
             if 'tunnel_settings' in config:
                 tunnel = config['tunnel_settings']
                 if not cls._is_valid_subnet(tunnel.get('local_subnet', '')):

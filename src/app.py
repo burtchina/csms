@@ -134,6 +134,15 @@ def create_app(config_name=None):
     init_policy(app)
     logger.info("已注册IPSec与防火墙联动策略管理模块")
     
+    # 初始化系统预设策略模板
+    try:
+        from src.init_policy_templates import init_policy_templates
+        with app.app_context():
+            init_policy_templates()
+        logger.info("已初始化IPSec与防火墙联动策略系统预设模板")
+    except Exception as e:
+        logger.warning(f"初始化IPSec与防火墙联动策略系统预设模板失败: {str(e)}")
+    
     # 注册增强版监控蓝图
     if has_enhanced_monitor:
         app.register_blueprint(enhanced_monitor_bp, url_prefix='/enhanced_monitor')

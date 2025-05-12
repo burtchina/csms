@@ -61,9 +61,9 @@
                             <label for="type" class="form-label">策略类型</label>
                             <select class="form-select" id="type" name="type" required>
                                 <option value="">-- 请选择 --</option>
-                                <option value="ipsec" {% if policy and policy.type == 'ipsec' %}selected{% endif %}>IPSec</option>
-                                <option value="ipsec_firewall" {% if policy and policy.type == 'ipsec_firewall' %}selected{% endif %}>IPSec与防火墙联动</option>
-                                <option value="ssl" {% if policy and policy.type == 'ssl' %}selected{% endif %}>SSL VPN</option>
+                                <option value="allow_all" {% if policy and policy.type == 'allow_all' %}selected{% endif %}>允许所有流量通过</option>
+                                <option value="ipsec_only" {% if policy and policy.type == 'ipsec_only' %}selected{% endif %}>只允许IPSec相关协议</option>
+                                <option value="ipsec_specific_ip" {% if policy and policy.type == 'ipsec_specific_ip' %}selected{% endif %}>允许IPSec流量和特定IP</option>
                             </select>
                         </div>
                         <div class="mb-3">
@@ -131,7 +131,7 @@
                 
                 <!-- 表单按钮 -->
                 <div class="d-flex justify-content-end">
-                    <button type="button" class="btn btn-outline-secondary me-2" onclick="window.location.href='{{ url_for('policy_view.index') }}'">取消</button>
+                    <button type="button" class="btn btn-outline-secondary me-2" onclick="window.location.href='{{ url_for('policy_view.index') }}';">取消</button>
                     <button type="submit" class="btn btn-primary ms-2" id="saveBtn">
                         <i class="fas fa-save me-1"></i>保存策略
                     </button>
@@ -234,29 +234,139 @@
                 const policyType = this.value;
                 let config;
                 
-                if (policyType === 'ipsec' || policyType === 'ipsec_firewall') {
-                    config = defaultConfig;
-                } else if (policyType === 'ssl') {
-                    config = {
-                        version: "1.0",
-                        ssl_settings: {
-                            authentication: {
-                                method: "cert",
-                                cert_file: ""
-                            },
-                            encryption: ["aes-256", "sha256"],
-                            lifetime: 86400
+                if (policyType === 'allow_all') {
+                    // 允许所有流量通过
+                    config = JSON.parse(JSON.stringify(defaultConfig));
+                    config.firewall_settings = {
+                        default_action: "allow",
+                        allowed_protocols: []
+                    };
+                    
+                    // 确保包含必要字段，但不需要具体内容
+                    config.ipsec_settings = {
+                        authentication: {
+                            method: "psk",
+                            psk: ""
                         },
-                        access_control: {
-                            allowed_ips: [],
-                            allowed_resources: []
+                        encryption: {
+                            phase1: ["aes-256", "sha256", "dh-group14"],
+                            phase2: ["aes-256", "sha256"]
+                        },
+                        lifetime: {
+                            phase1: 86400,
+                            phase2: 3600
                         }
                     };
+                    
+                    // tunnel_settings不是必需项，但保留空值
+                    config.tunnel_settings = {
+                        local_subnet: "",
+                        remote_subnet: "",
+                        remote_gateway: ""
+                    };
+                } else if (policyType === 'ipsec_only') {
+                    // 只允许IPSec相关协议
+                    config = JSON.parse(JSON.stringify(defaultConfig));
+                    config.firewall_settings = {
+                        default_action: "deny",
+                        allowed_protocols: [
+                            {
+                                protocol: "udp",
+                                port: 500,
+                                description: "IKE"
+                            },
+                            {
+                                protocol: "udp",
+                                port: 4500,
+                                description: "NAT-T"
+                            },
+                            {
+                                protocol: "esp",
+                                description: "ESP Protocol"
+                            }
+                        ]
+                    };
+                    
+                    // 确保包含必要字段
+                    config.ipsec_settings = {
+                        authentication: {
+                            method: "psk",
+                            psk: ""
+                        },
+                        encryption: {
+                            phase1: ["aes-256", "sha256", "dh-group14"],
+                            phase2: ["aes-256", "sha256"]
+                        },
+                        lifetime: {
+                            phase1: 86400,
+                            phase2: 3600
+                        }
+                    };
+                    
+                    // tunnel_settings不是必需项，但保留空值
+                    config.tunnel_settings = {
+                        local_subnet: "",
+                        remote_subnet: "",
+                        remote_gateway: ""
+                    };
+                } else if (policyType === 'ipsec_specific_ip') {
+                    // 允许IPSec流量和特定IP
+                    config = JSON.parse(JSON.stringify(defaultConfig));
+                    config.firewall_settings = {
+                        default_action: "deny",
+                        allowed_protocols: [
+                            {
+                                protocol: "udp",
+                                port: 500,
+                                description: "IKE"
+                            },
+                            {
+                                protocol: "udp",
+                                port: 4500,
+                                description: "NAT-T"
+                            },
+                            {
+                                protocol: "esp",
+                                description: "ESP Protocol"
+                            }
+                        ]
+                    };
+                    
+                    // 确保包含必要字段
+                    config.ipsec_settings = {
+                        authentication: {
+                            method: "psk",
+                            psk: ""
+                        },
+                        encryption: {
+                            phase1: ["aes-256", "sha256", "dh-group14"],
+                            phase2: ["aes-256", "sha256"]
+                        },
+                        lifetime: {
+                            phase1: 86400,
+                            phase2: 3600
+                        }
+                    };
+                    
+                    // tunnel_settings不是必需项，但保留空值
+                    config.tunnel_settings = {
+                        local_subnet: "",
+                        remote_subnet: "",
+                        remote_gateway: ""
+                    };
+                    
+                    // 添加特定IP地址限制
+                    config.source_restrictions = {
+                        allowed_ips: ["203.0.113.0/24"],
+                        allowed_domains: ["partner-university.edu"]
+                    };
+                } else {
+                    // 默认空配置
+                    config = {};
                 }
                 
-                if (config) {
-                    document.getElementById('config').value = JSON.stringify(config, null, 2);
-                }
+                // 更新配置文本区域
+                document.getElementById('config').value = JSON.stringify(config, null, 2);
             });
         }
         
