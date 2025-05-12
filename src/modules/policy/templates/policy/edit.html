@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="mb-0">编辑安全策略</h1>
+        <div>
+            <a href="{{ url_for('policy_view.index') }}" class="btn btn-secondary me-2">
+                <i class="fas fa-arrow-left me-1"></i>返回列表
+            </a>
+            <a href="{{ url_for('policy_view.detail', policy_id=policy.id) }}" class="btn btn-info">
+                <i class="fas fa-eye me-1"></i>查看详情
+            </a>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h5 class="card-title mb-0">策略信息</h5>
+        </div>
+        <div class="card-body">
+            <form id="policyForm" method="POST" action="{{ url_for('policy_view.edit', policy_id=policy.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="name" class="form-label">策略名称 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="name" name="name" required value="{{ policy.name }}">
+                    </div>
+                    <div class="col-md-6">
+                        <label for="type" class="form-label">策略类型 <span class="text-danger">*</span></label>
+                        <select class="form-select" id="type" name="type" required>
+                            <option value="ipsec" {% if policy.type == 'ipsec' %}selected{% endif %}>IPSec</option>
+                            <option value="ssl" {% if policy.type == 'ssl' %}selected{% endif %}>SSL VPN</option>
+                            <option value="firewall" {% if policy.type == 'firewall' %}selected{% endif %}>防火墙</option>
+                            <option value="ipsec_firewall" {% if policy.type == 'ipsec_firewall' %}selected{% endif %}>IPSec与防火墙联动</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="description" class="form-label">策略描述</label>
+                    <textarea class="form-control" id="description" name="description" rows="3">{{ policy.description }}</textarea>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="config" class="form-label">策略配置 <span class="text-danger">*</span></label>
+                    <div class="d-flex justify-content-end mb-2">
+                        <button type="button" class="btn btn-sm btn-info" id="validateBtn">
+                            <i class="fas fa-check-circle me-1"></i>验证配置
+                        </button>
+                    </div>
+                    <!-- 简单文本编辑框 -->
+                    <textarea class="form-control" id="config" name="config" rows="15" required>{{ policy.config | tojson(indent=2) }}</textarea>
+                </div>
+                
+                <div class="text-end">
+                    <button type="submit" class="btn btn-primary">保存策略</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- 验证结果模态框 -->
+<div class="modal fade" id="validateModal" tabindex="-1" aria-labelledby="validateModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="validateModalLabel">配置验证结果</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="validateSuccess" class="alert alert-success d-none">
+                    <i class="fas fa-check-circle me-2"></i><span>配置验证通过</span>
+                </div>
+                <div id="validateError" class="alert alert-danger d-none">
+                    <i class="fas fa-times-circle me-2"></i><span id="validateErrorMessage">配置验证失败</span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // 验证按钮
+    document.getElementById('validateBtn').addEventListener('click', function() {
+        const configText = document.getElementById('config').value;
+        let configJson;
+        
+        try {
+            configJson = JSON.parse(configText);
+        } catch (e) {
+            document.getElementById('validateSuccess').classList.add('d-none');
+            document.getElementById('validateError').classList.remove('d-none');
+            document.getElementById('validateErrorMessage').textContent = "JSON格式错误: " + e.message;
+            new bootstrap.Modal(document.getElementById('validateModal')).show();
+            return;
+        }
+        
+        // 发送到后端验证
+        fetch('/api/policies/validate', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('input[name="csrf_token"]').value
+            },
+            body: JSON.stringify({
+                type: document.getElementById('type').value,
+                config: configJson
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('validateSuccess').classList.remove('d-none');
+                document.getElementById('validateError').classList.add('d-none');
+            } else {
+                document.getElementById('validateSuccess').classList.add('d-none');
+                document.getElementById('validateError').classList.remove('d-none');
+                document.getElementById('validateErrorMessage').textContent = "验证失败: " + (data.errors ? data.errors.join(", ") : "未知错误");
+            }
+            new bootstrap.Modal(document.getElementById('validateModal')).show();
+        })
+        .catch(error => {
+            document.getElementById('validateSuccess').classList.add('d-none');
+            document.getElementById('validateError').classList.remove('d-none');
+            document.getElementById('validateErrorMessage').textContent = "验证请求失败: " + error.message;
+            new bootstrap.Modal(document.getElementById('validateModal')).show();
+        });
+    });
+</script>
+{% endblock %} 

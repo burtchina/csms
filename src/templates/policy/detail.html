@@ -183,7 +183,7 @@
                             <h5 class="card-title mb-4">配置详情</h5>
                             {% if policy.config %}
                             <div class="json-viewer">
-                                <pre id="json-display">{{ policy.config|tojson(indent=2) }}</pre>
+                                <textarea class="form-control" rows="20" readonly>{{ policy.config|tojson(indent=2) }}</textarea>
                             </div>
                             {% else %}
                             <div class="alert alert-warning">
@@ -343,25 +343,8 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="https://cdn.jsdelivr.net/npm/jsoneditor@9.5.7/dist/jsoneditor.min.js"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // 初始化JSON查看器
-        try {
-            const jsonDisplay = document.getElementById('json-display');
-            if (jsonDisplay) {
-                const jsonData = JSON.parse(jsonDisplay.textContent);
-                jsonDisplay.innerHTML = JSON.stringify(jsonData, null, 2);
-                // 美化格式
-                jsonDisplay.classList.add('language-json');
-                if (window.hljs) {
-                    hljs.highlightElement(jsonDisplay);
-                }
-            }
-        } catch (e) {
-            console.error("JSON解析错误:", e);
-        }
-        
         // 设置查看部署结果模态框
         const resultModal = document.getElementById('resultModal');
         if (resultModal) {

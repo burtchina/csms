@@ -71,33 +71,13 @@
                             <i class="fas fa-check-circle me-1"></i>验证配置
                         </button>
                     </div>
-                    <div id="jsonEditor" class="border rounded p-3" style="min-height: 300px;"></div>
-                    <input type="hidden" id="config" name="config">
+                    <textarea class="form-control" id="config" name="config" rows="15" required></textarea>
                 </div>
                 
                 <div class="text-end">
-                    <button type="button" class="btn btn-secondary me-2" id="previewBtn">预览配置</button>
                     <button type="submit" class="btn btn-primary">保存策略</button>
                 </div>
             </form>
-        </div>
-    </div>
-</div>
-
-<!-- 预览模态框 -->
-<div class="modal fade" id="previewModal" tabindex="-1" aria-labelledby="previewModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="previewModalLabel">策略配置预览</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <pre class="p-3 bg-light rounded"><code id="previewContent"></code></pre>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
-            </div>
         </div>
     </div>
 </div>
@@ -127,18 +107,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jsoneditor/9.9.2/jsoneditor.min.js"></script>
-<link href="https://cdnjs.cloudflare.com/ajax/libs/jsoneditor/9.9.2/jsoneditor.min.css" rel="stylesheet" type="text/css">
 <script>
-    // JSON编辑器初始化
-    const container = document.getElementById('jsonEditor');
-    const options = {
-        mode: 'tree',
-        mainMenuBar: false,
-        navigationBar: false
-    };
-    const editor = new JSONEditor(container, options);
-    
     // 默认配置
     const defaultConfig = {
         "version": "1.0",
@@ -194,24 +163,25 @@
     };
     
     // 设置初始值
-    editor.set(defaultConfig);
+    document.getElementById('config').value = JSON.stringify(defaultConfig, null, 2);
     
     // 策略类型变更时更新默认配置
     document.getElementById('type').addEventListener('change', function() {
         const policyType = this.value;
+        let config;
         
         if (policyType === 'ipsec' || policyType === 'ipsec_firewall') {
             // IPSec相关策略使用完整的IPSec配置
-            editor.set(defaultConfig);
+            config = defaultConfig;
         } else if (policyType === 'firewall') {
             // 防火墙策略只需要firewall_settings
-            editor.set({
+            config = {
                 "version": "1.0",
                 "firewall_settings": defaultConfig.firewall_settings
-            });
+            };
         } else if (policyType === 'ssl') {
             // SSL VPN策略使用简化配置
-            editor.set({
+            config = {
                 "version": "1.0",
                 "ssl_settings": {
                     "authentication": {
@@ -225,7 +195,11 @@
                     "allowed_ips": [],
                     "allowed_resources": []
                 }
-            });
+            };
+        }
+        
+        if (config) {
+            document.getElementById('config').value = JSON.stringify(config, null, 2);
         }
     });
     
@@ -234,88 +208,55 @@
         button.addEventListener('click', function() {
             const card = this.closest('.template-card');
             const config = JSON.parse(card.getAttribute('data-config'));
-            editor.set(config);
+            document.getElementById('config').value = JSON.stringify(config, null, 2);
         });
     });
     
-    // 表单提交处理
-    document.getElementById('policyForm').addEventListener('submit', function(e) {
+    // 验证按钮
+    document.getElementById('validateBtn').addEventListener('click', function() {
+        const configText = document.getElementById('config').value;
+        let configJson;
+        
         try {
-            // 获取编辑器中的JSON
-            const json = editor.get();
-            // 验证JSON
-            JSON.stringify(json);
-            // 设置到隐藏字段
-            document.getElementById('config').value = JSON.stringify(json);
-        } catch (err) {
-            e.preventDefault();
-            alert('策略配置格式错误，请检查后重试');
-        }
-    });
-    
-    // 预览按钮处理
-    document.getElementById('previewBtn').addEventListener('click', function() {
-        try {
-            const json = editor.get();
-            document.getElementById('previewContent').textContent = JSON.stringify(json, null, 2);
-            new bootstrap.Modal(document.getElementById('previewModal')).show();
-        } catch (err) {
-            alert('策略配置格式错误，无法预览');
-        }
-    });
-    
-    // 验证按钮处理
-    document.getElementById('validateBtn').addEventListener('click', async function() {
-        try {
-            // 获取策略类型和配置
-            const policyType = document.getElementById('type').value;
-            const config = editor.get();
-            
-            if (!policyType) {
-                alert('请先选择策略类型');
-                return;
-            }
-            
-            // 准备模态框
-            const validateSuccess = document.getElementById('validateSuccess');
-            const validateError = document.getElementById('validateError');
-            const validateErrorMessage = document.getElementById('validateErrorMessage');
-            
-            validateSuccess.classList.add('d-none');
-            validateError.classList.add('d-none');
-            
-            // 发送验证请求
-            const response = await fetch('/api/policies/validate', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-Token': document.querySelector('input[name="csrf_token"]').value
-                },
-                body: JSON.stringify({
-                    type: policyType,
-                    config: config
-                })
-            });
-            
-            const result = await response.json();
-            
-            // 显示结果
-            if (response.ok && result.status === 'success') {
-                validateSuccess.classList.remove('d-none');
-            } else {
-                validateError.classList.remove('d-none');
-                if (result.errors && result.errors.length > 0) {
-                    validateErrorMessage.textContent = result.errors.join(', ');
-                } else {
-                    validateErrorMessage.textContent = result.message || '验证失败';
-                }
-            }
-            
-            // 显示模态框
+            configJson = JSON.parse(configText);
+        } catch (e) {
+            document.getElementById('validateSuccess').classList.add('d-none');
+            document.getElementById('validateError').classList.remove('d-none');
+            document.getElementById('validateErrorMessage').textContent = "JSON格式错误: " + e.message;
             new bootstrap.Modal(document.getElementById('validateModal')).show();
-        } catch (err) {
-            alert('验证过程发生错误: ' + err.message);
+            return;
         }
+        
+        // 发送到后端验证
+        fetch('/api/policies/validate', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('input[name="csrf_token"]').value
+            },
+            body: JSON.stringify({
+                type: document.getElementById('type').value,
+                config: configJson
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('validateSuccess').classList.remove('d-none');
+                document.getElementById('validateError').classList.add('d-none');
+            } else {
+                document.getElementById('validateSuccess').classList.add('d-none');
+                document.getElementById('validateError').classList.remove('d-none');
+                document.getElementById('validateErrorMessage').textContent = "验证失败: " + (data.errors ? data.errors.join(", ") : "未知错误");
+            }
+            new bootstrap.Modal(document.getElementById('validateModal')).show();
+        })
+        .catch(error => {
+            document.getElementById('validateSuccess').classList.add('d-none');
+            document.getElementById('validateError').classList.remove('d-none');
+            document.getElementById('validateErrorMessage').textContent = "验证请求失败: " + error.message;
+            new bootstrap.Modal(document.getElementById('validateModal')).show();
+        });
     });
 </script>
 {% endblock %} 

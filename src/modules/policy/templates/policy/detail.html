@@ -8,6 +8,9 @@
             <a href="{{ url_for('policy_view.index') }}" class="btn btn-secondary me-2">
                 <i class="fas fa-arrow-left me-1"></i>返回列表
             </a>
+            <a href="{{ url_for('policy_view.edit', policy_id=policy.id) }}" class="btn btn-primary me-2">
+                <i class="fas fa-edit me-1"></i>编辑策略
+            </a>
             <a href="{{ url_for('policy_view.deploy', policy_id=policy.id) }}" class="btn btn-success">
                 <i class="fas fa-upload me-1"></i>部署策略
             </a>
@@ -58,7 +61,7 @@
                         </tr>
                         <tr>
                             <th>创建人</th>
-                            <td>{{ policy.creator.username if policy.creator else '未知' }}</td>
+                            <td>{{ policy.creator_name if policy.creator_name else '未知' }}</td>
                         </tr>
                     </table>
                 </div>
@@ -80,7 +83,7 @@
                     <h5 class="card-title mb-0">部署状态</h5>
                 </div>
                 <div class="card-body">
-                    {% if policy.deployments %}
+                    {% if deployments and deployments|length > 0 %}
                         <div class="table-responsive">
                             <table class="table table-hover">
                                 <thead>
@@ -91,7 +94,7 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {% for deployment in policy.deployments %}
+                                    {% for deployment in deployments %}
                                         <tr>
                                             <td>{{ deployment.device.name if deployment.device else '未知设备' }}</td>
                                             <td>
@@ -126,8 +129,57 @@
             <h5 class="card-title mb-0">策略配置</h5>
         </div>
         <div class="card-body">
-            <pre class="p-3 bg-light rounded"><code>{{ policy.config | tojson(indent=2) }}</code></pre>
+            <!-- 简化为纯文本编辑框 -->
+            <div class="form-group">
+                <textarea class="form-control" id="configText" rows="15" readonly>{{ policy.config | tojson(indent=2) }}</textarea>
+            </div>
         </div>
     </div>
+
+    {% if audit_logs and audit_logs|length > 0 %}
+    <div class="card mt-4">
+        <div class="card-header">
+            <h5 class="card-title mb-0">操作日志</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>时间</th>
+                            <th>操作</th>
+                            <th>操作人</th>
+                            <th>详情</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in audit_logs %}
+                            <tr>
+                                <td>{{ log.created_at }}</td>
+                                <td>
+                                    {% if log.action == 'create' %}
+                                        <span class="badge bg-primary">创建</span>
+                                    {% elif log.action == 'update' %}
+                                        <span class="badge bg-info">更新</span>
+                                    {% elif log.action == 'delete' %}
+                                        <span class="badge bg-danger">删除</span>
+                                    {% elif log.action == 'deploy' %}
+                                        <span class="badge bg-success">部署</span>
+                                    {% elif log.action == 'rollback' %}
+                                        <span class="badge bg-warning">回滚</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">{{ log.action }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ log.user_name }}</td>
+                                <td>{{ log.details }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 </div>
 {% endblock %} 

@@ -276,6 +276,10 @@ def deploy(policy_id):
         
         for device_id in device_ids:
             try:
+                # 获取设备信息以显示名称
+                device = next((d for d in devices if str(d.id) == str(device_id)), None)
+                device_name = device.name if device else f"设备 {device_id}"
+                
                 success, result = deploy_service.deploy_policy(
                     policy_id=policy_id,
                     device_id=int(device_id),
@@ -285,6 +289,7 @@ def deploy(policy_id):
                 
                 deployment_results.append({
                     'device_id': device_id,
+                    'device_name': device_name,
                     'success': success,
                     'message': result
                 })
@@ -296,9 +301,34 @@ def deploy(policy_id):
                 overall_success = False
                 deployment_results.append({
                     'device_id': device_id,
+                    'device_name': device_name if 'device_name' in locals() else f"设备 {device_id}",
                     'success': False,
                     'message': str(e)
                 })
+        
+        # 生成部署结果HTML
+        result_html = '<div class="mb-3"><h5>部署结果摘要</h5>'
+        if overall_success:
+            result_html += '<div class="alert alert-success"><i class="fas fa-check-circle me-2"></i>策略已成功部署到所有选定设备</div>'
+        else:
+            result_html += '<div class="alert alert-warning"><i class="fas fa-exclamation-triangle me-2"></i>部署过程中遇到一些问题，请查看详细信息</div>'
+        result_html += '</div>'
+        
+        result_html += '<div class="table-responsive"><table class="table table-bordered">'
+        result_html += '<thead><tr><th>设备</th><th>状态</th><th>详细信息</th></tr></thead><tbody>'
+        
+        for result in deployment_results:
+            status_class = 'success' if result['success'] else 'danger'
+            status_icon = 'check-circle' if result['success'] else 'times-circle'
+            status_text = '成功' if result['success'] else '失败'
+            
+            result_html += f'<tr>'
+            result_html += f'<td>{result["device_name"]}</td>'
+            result_html += f'<td><span class="badge bg-{status_class}"><i class="fas fa-{status_icon} me-1"></i>{status_text}</span></td>'
+            result_html += f'<td>{result["message"]}</td>'
+            result_html += f'</tr>'
+        
+        result_html += '</tbody></table></div>'
         
         # 显示部署结果
         if overall_success:
@@ -306,8 +336,15 @@ def deploy(policy_id):
         else:
             flash('部署过程中遇到一些问题，请查看详细信息', 'warning')
         
-        # 重定向到策略详情页面，显示部署状态
-        return redirect(url_for('policy_view.detail', policy_id=policy_id))
+        # 返回到部署页面并显示结果
+        return render_template(
+            'policy/deploy.html',
+            title='部署策略',
+            policy=policy,
+            devices=devices,
+            deployment_results=deployment_results,
+            result_html=result_html
+        )
     
     return render_template(
         'policy/deploy.html',
