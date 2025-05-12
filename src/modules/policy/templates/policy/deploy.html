@@ -142,7 +142,7 @@
 
 <!-- 预览模态框 -->
 <div class="modal fade" id="previewModal" tabindex="-1" aria-labelledby="previewModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
+    <div class="modal-dialog modal-lg" data-position-fixed="true">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="previewModalLabel">策略配置预览</h5>
@@ -160,7 +160,7 @@
 
 <!-- 部署结果模态框 -->
 <div class="modal fade" id="deployResultModal" tabindex="-1" aria-labelledby="deployResultModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
+    <div class="modal-dialog modal-lg" data-position-fixed="true">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="deployResultModalLabel">部署结果</h5>
@@ -195,6 +195,37 @@
         const deployBtn = document.getElementById('deployBtn');
         const selectAllBtn = document.getElementById('selectAllBtn');
         const deselectAllBtn = document.getElementById('deselectAllBtn');
+        
+        // 确保模态框位置固定
+        function fixModalDialogs() {
+            const modalDialogs = document.querySelectorAll('.modal-dialog');
+            modalDialogs.forEach(dialog => {
+                if (!dialog.hasAttribute('data-position-fixed')) {
+                    dialog.style.position = 'fixed';
+                    dialog.style.top = '30%';
+                    dialog.style.left = '50%';
+                    dialog.style.transform = 'translate(-50%, -30%)';
+                    dialog.setAttribute('data-position-fixed', 'true');
+                }
+            });
+        }
+        
+        // 在DOM加载后和窗口大小改变时应用修复
+        fixModalDialogs();
+        window.addEventListener('resize', fixModalDialogs);
+        
+        // 为所有模态框添加显示前的事件监听器
+        const modals = document.querySelectorAll('.modal');
+        modals.forEach(modal => {
+            modal.addEventListener('show.bs.modal', function() {
+                const dialog = this.querySelector('.modal-dialog');
+                dialog.style.position = 'fixed';
+                dialog.style.top = '30%';
+                dialog.style.left = '50%';
+                dialog.style.transform = 'translate(-50%, -30%)';
+                dialog.setAttribute('data-position-fixed', 'true');
+            });
+        });
         
         function updateDeployButtonState() {
             let hasChecked = false;
@@ -283,18 +314,24 @@
         
         // 如果存在部署结果，自动显示模态框
         if (typeof deploymentResults !== 'undefined' && deploymentResults) {
-            const deployResultModal = new bootstrap.Modal(document.getElementById('deployResultModal'));
-            deployResultModal.show();
+            setTimeout(() => {
+                const deployResultModal = new bootstrap.Modal(document.getElementById('deployResultModal'));
+                deployResultModal.show();
+                fixModalDialogs(); // 再次确保模态框位置固定
+            }, 500);
         }
         
         // 如果URL中有部署结果参数，显示部署结果模态框
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.has('deploy_result')) {
             const deployResult = urlParams.get('deploy_result');
-            const deployResultModal = new bootstrap.Modal(document.getElementById('deployResultModal'));
             
-            document.getElementById('deployResultContent').innerHTML = deployResult;
-            deployResultModal.show();
+            setTimeout(() => {
+                document.getElementById('deployResultContent').innerHTML = deployResult;
+                const deployResultModal = new bootstrap.Modal(document.getElementById('deployResultModal'));
+                deployResultModal.show();
+                fixModalDialogs(); // 再次确保模态框位置固定
+            }, 500);
         }
     });
 </script>

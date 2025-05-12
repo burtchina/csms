@@ -1441,3 +1441,102 @@ devices = []
    - 优化大量设备时的选择和部署性能
    - 实现部署任务的异步处理，提高系统响应性
    - 优化部署结果的缓存机制，减少重复查询
+
+## 2025-06-12 设备管理模块CSRF保护修复
+
+### 问题背景
+
+在使用设备管理模块的添加设备功能时，出现"The CSRF token is missing"错误，导致无法成功添加设备。经排查，这是因为设备模块的部分表单中缺少CSRF token字段，无法通过Flask-WTF的CSRFProtect保护机制验证。
+
+### 修复内容
+
+1. **设备添加表单CSRF修复**
+   - 在设备添加表单中添加了CSRF token隐藏字段
+   - 使用`<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">`确保表单提交时包含有效的CSRF token
+   - 修改了`src/modules/device/templates/device/add.html`模板文件
+
+2. **设备编辑表单CSRF修复**
+   - 在设备编辑表单中添加了CSRF token隐藏字段
+   - 修改了`src/modules/device/templates/device/edit.html`模板文件
+   - 确保编辑设备信息时能够通过CSRF保护验证
+
+3. **设备类型管理表单CSRF修复**
+   - 修复了设备类型添加表单：`src/modules/device/templates/device/add_type.html`
+   - 修复了设备类型编辑表单：`src/modules/device/templates/device/edit_type.html`
+   - 在类型删除确认表单中也添加了CSRF token字段
+
+4. **设备删除功能CSRF修复**
+   - 在设备删除确认模态框的表单中添加了CSRF token
+   - 修改了`src/modules/device/templates/device/view.html`和`src/modules/device/templates/device/index.html`
+   - 确保删除设备操作能够通过CSRF保护验证
+   - 修复了设备类型删除表单：`src/modules/device/templates/device/types.html`
+
+### 技术细节
+
+1. **CSRF保护机制**
+   - 系统使用Flask-WTF的CSRFProtect扩展提供CSRF保护
+   - 每个表单需要包含一个名为"csrf_token"的隐藏字段，值由`{{ csrf_token() }}`模板函数生成
+   - 当缺少此字段时，服务器会拒绝处理表单提交，返回"CSRF token is missing"错误
+
+2. **实现方式**
+   - 在所有POST方法的表单中添加相同格式的CSRF token字段
+   - 确保token字段位于表单开始位置，紧跟着form标签之后
+   - 对于使用JavaScript动态生成action的表单，确保在提交前包含有效的CSRF token
+
+3. **验证确认**
+   - 修复后测试了设备添加、编辑、删除功能，确认所有操作都能成功通过CSRF验证
+   - 验证了设备类型管理相关功能的CSRF保护正常工作
+
+### 设计原则应用
+
+1. **安全优先原则**
+   - 确保所有表单提交都经过CSRF保护验证，防止跨站请求伪造攻击
+   - 不为了便利而绕过安全机制，保持一致的安全实践
+
+2. **一致性原则**
+   - 在所有表单中统一使用相同格式的CSRF token实现
+   - 保持添加、编辑、删除等操作的安全机制一致
+
+3. **防御性编程原则**
+   - 即使在内部管理界面，也保持对所有表单提交的安全验证
+
+## 2023-12-15 用户界面优化与问题修复
+
+### 修复内容
+
+1. **确认部署对话框修复**
+   - 解决确认部署模态框频繁移动位置的bug
+   - 在`main.js`中添加通用模态框位置修复函数
+   - 为所有模态框添加统一的位置控制，提高用户体验
+   - 通过事件监听确保模态框始终保持在视窗中央
+
+2. **全局JavaScript增强**
+   - 优化模态框显示逻辑，统一处理位置固定问题
+   - 为模态框添加`data-position-fixed`属性，避免重复应用样式
+   - 使用`position: fixed`样式确保模态框在滚动时保持位置
+   - 改进模态框动画效果，使其更加平滑
+
+### 技术细节
+
+1. **问题原因分析**
+   - 模态框位置不稳定是由于Bootstrap默认的定位行为受页面滚动影响
+   - 某些情况下，页面内容动态加载会导致模态框位置计算错误
+   - 用户操作过程中，如选择设备等操作可能触发页面重排，影响模态框位置
+
+2. **解决方案设计**
+   - 采用全局事件监听机制，统一管理所有模态框行为
+   - 使用CSS绝对定位+变换技术，确保模态框居中显示
+   - 通过JavaScript动态设置样式，兼容不同尺寸的设备显示
+   - 实现一次修复，全站生效的解决方案
+
+3. **代码质量保障**
+   - 保持代码整洁，避免不必要的内联样式
+   - 使用语义化命名，增强代码可读性
+   - 添加适当注释，说明实现目的和原理
+   - 确保修复方案不影响现有功能
+
+4. **兼容性考虑**
+   - 测试确保在主流浏览器中正常工作（Chrome, Firefox, Edge）
+   - 兼容移动设备和不同分辨率屏幕
+   - 不影响其他组件的正常使用
+   - 与Bootstrap框架良好集成

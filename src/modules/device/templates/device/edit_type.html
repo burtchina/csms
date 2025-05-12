@@ -17,6 +17,7 @@
         </div>
         <div class="card-body">
             <form method="post" action="{{ url_for('device.edit_type', type_id=device_type.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="mb-3">
                     <label for="name" class="form-label">类型名称 <span class="text-danger">*</span></label>
                     <input type="text" class="form-control" id="name" name="name" value="{{ device_type.name }}" required>
@@ -79,6 +80,7 @@
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-dismiss="modal">取消</button>
                 <form id="deleteForm" method="post">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <button type="submit" id="confirmDeleteBtn" class="btn btn-danger">确认删除</button>
                 </form>
             </div>

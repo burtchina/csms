@@ -86,4 +86,30 @@ document.addEventListener('DOMContentLoaded', function() {
   
   // 尝试修复布局
   setTimeout(fixLayoutIssues, 500);
+  
+  // 修复模态框位置问题
+  function fixModalPosition() {
+    // 获取所有模态框
+    const modals = document.querySelectorAll('.modal');
+    
+    if (modals.length > 0) {
+      modals.forEach(modal => {
+        // 监听模态框显示事件
+        modal.addEventListener('show.bs.modal', function() {
+          const modalDialog = this.querySelector('.modal-dialog');
+          if (modalDialog && !modalDialog.hasAttribute('data-position-fixed')) {
+            // 设置固定位置样式
+            modalDialog.style.position = 'fixed';
+            modalDialog.style.top = '30%';
+            modalDialog.style.left = '50%';
+            modalDialog.style.transform = 'translate(-50%, -30%)';
+            modalDialog.setAttribute('data-position-fixed', 'true');
+          }
+        });
+      });
+    }
+  }
+  
+  // 应用模态框位置修复
+  setTimeout(fixModalPosition, 300);
 }); 

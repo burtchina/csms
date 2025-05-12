@@ -44,6 +44,8 @@ def main():
         "Flask-Login==0.5.0",
         "Flask-WTF==0.15.1",
         "Flask-Migrate==3.1.0",
+        "Flask-JWT-Extended==4.4.4",
+        "jsonschema==4.17.3",
         "paramiko==2.7.2",
         "netmiko==3.4.0"
     ]
