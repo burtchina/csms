@@ -99,11 +99,37 @@
                 
                 <!-- 设备选择部分 -->
                 {% if devices %}
-                <h5 class="mb-3">选择部署设备</h5>
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="mb-0">选择部署设备</h5>
+                    
+                    <!-- 设备类型筛选 -->
+                    <div class="d-flex align-items-center">
+                        <label class="me-2">按设备类型筛选:</label>
+                        <select id="deviceTypeFilter" class="form-select form-select-sm" style="width: auto;">
+                            <option value="all">全部设备</option>
+                            <option value="防火墙" selected>防火墙</option>
+                            {% for type_name in all_device_types %}
+                                {% if type_name != '防火墙' %}
+                                <option value="{{ type_name }}">{{ type_name }}</option>
+                                {% endif %}
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <div class="d-flex mb-3">
+                    <button type="button" class="btn btn-sm btn-outline-primary me-2" id="selectAllBtn">
+                        <i class="fas fa-check-square me-1"></i>全选
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="deselectAllBtn">
+                        <i class="fas fa-square me-1"></i>取消全选
+                    </button>
+                </div>
+
                 <div class="row">
                     {% for device in devices %}
-                    <div class="col-md-4 mb-4">
-                        <div class="card device-card{% if device.id|string in deployed_device_ids %} deployed{% endif %}" data-device-id="{{ device.id }}">
+                    <div class="col-md-4 mb-4 device-item" data-device-type="{{ device.type.name if device.type else '未知' }}">
+                        <div class="card device-card h-100{% if device.id|string in deployed_device_ids %} deployed{% endif %}" data-device-id="{{ device.id }}">
                             <div class="card-body">
                                 <div class="form-check">
                                     <input class="form-check-input device-checkbox" type="checkbox" name="device_ids" value="{{ device.id }}" id="device{{ device.id }}" {% if device.id|string in deployed_device_ids %}checked{% endif %}>
@@ -113,6 +139,7 @@
                                             <span class="device-status status-{{ device.status|lower }}"></span>
                                         </div>
                                         <p class="card-text text-muted mt-2">
+                                            <small>类型: <span class="badge bg-secondary">{{ device.type.name if device.type else '未知' }}</span></small><br>
                                             <small>型号: {{ device.model }}</small><br>
                                             <small>IP: {{ device.ip_address }}</small>
                                         </p>
@@ -269,6 +296,72 @@
                 card.classList.add('selected');
             }
         });
+
+        // 设备类型筛选功能
+        const deviceTypeFilter = document.getElementById('deviceTypeFilter');
+        const deviceItems = document.querySelectorAll('.device-item');
+        const selectAllBtn = document.getElementById('selectAllBtn');
+        const deselectAllBtn = document.getElementById('deselectAllBtn');
+
+        // 设备类型筛选
+        if (deviceTypeFilter) {
+            deviceTypeFilter.addEventListener('change', function() {
+                const selectedType = this.value;
+                
+                deviceItems.forEach(item => {
+                    const deviceType = item.getAttribute('data-device-type');
+                    
+                    if (selectedType === 'all' || deviceType === selectedType) {
+                        item.style.display = 'block';
+                    } else {
+                        item.style.display = 'none';
+                        // 取消选中隐藏的设备
+                        const checkbox = item.querySelector('.device-checkbox');
+                        if (checkbox && checkbox.checked) {
+                            checkbox.checked = false;
+                            item.querySelector('.device-card').classList.remove('selected');
+                        }
+                    }
+                });
+                
+                // 更新选择状态
+                updateSelectedDevices();
+            });
+            
+            // 初始筛选 - 默认显示防火墙设备
+            deviceTypeFilter.dispatchEvent(new Event('change'));
+        }
+
+        // 全选按钮
+        if (selectAllBtn) {
+            selectAllBtn.addEventListener('click', function() {
+                const visibleItems = Array.from(deviceItems).filter(item => 
+                    item.style.display !== 'none'
+                );
+                
+                visibleItems.forEach(item => {
+                    const checkbox = item.querySelector('.device-checkbox');
+                    if (checkbox && !checkbox.checked) {
+                        checkbox.checked = true;
+                        item.querySelector('.device-card').classList.add('selected');
+                    }
+                });
+                
+                updateSelectedDevices();
+            });
+        }
+
+        // 取消全选按钮
+        if (deselectAllBtn) {
+            deselectAllBtn.addEventListener('click', function() {
+                deviceCheckboxes.forEach(checkbox => {
+                    checkbox.checked = false;
+                    checkbox.closest('.device-card').classList.remove('selected');
+                });
+                
+                updateSelectedDevices();
+            });
+        }
     });
 </script>
 {% endblock %} 

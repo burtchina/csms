@@ -245,9 +245,29 @@ def deploy(policy_id):
     # 获取可用设备列表 - 修复设备列表为空的问题
     devices = get_all_devices()
     
-    # 过滤防火墙设备 - 针对IPSec策略，主要使用防火墙类型设备
-    if policy.type in ['ipsec', 'ipsec_firewall']:
-        devices = [device for device in devices if device.type and device.type.name == '防火墙']
+    # 设备过滤逻辑优化
+    filtered_devices = []
+    all_device_types = set()
+    
+    # 收集所有设备类型
+    for device in devices:
+        if device.type:
+            all_device_types.add(device.type.name)
+    
+    # 根据策略类型进行设备过滤
+    if policy.type == 'ipsec' or policy.type == 'ipsec_firewall':
+        # 对于IPSec策略，优先显示防火墙设备，但也允许选择其他类型设备
+        primary_devices = [device for device in devices if device.type and device.type.name == '防火墙']
+        other_devices = [device for device in devices if not device.type or device.type.name != '防火墙']
+        
+        filtered_devices = primary_devices + other_devices
+        
+        # 如果没有防火墙设备，显示所有设备
+        if not primary_devices:
+            filtered_devices = devices
+    else:
+        # 对于其他类型的策略，显示所有设备
+        filtered_devices = devices
     
     if request.method == 'POST':
         # 获取选择的设备IDs
@@ -259,7 +279,8 @@ def deploy(policy_id):
                 'policy/deploy.html',
                 title='部署策略',
                 policy=policy,
-                devices=devices
+                devices=filtered_devices,
+                all_device_types=all_device_types
             )
         
         # 获取部署选项
@@ -341,7 +362,8 @@ def deploy(policy_id):
             'policy/deploy.html',
             title='部署策略',
             policy=policy,
-            devices=devices,
+            devices=filtered_devices,
+            all_device_types=all_device_types,
             deployment_results=deployment_results,
             result_html=result_html
         )
@@ -350,7 +372,8 @@ def deploy(policy_id):
         'policy/deploy.html',
         title='部署策略',
         policy=policy,
-        devices=devices
+        devices=filtered_devices,
+        all_device_types=all_device_types
     )
 
 @policy_view_bp.route('/alerts')
