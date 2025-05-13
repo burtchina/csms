@@ -389,13 +389,27 @@
             })
             .then(response => response.json())
             .then(data => {
+                console.log('验证响应数据:', data);
                 if (data.success) {
                     document.getElementById('validateSuccess').classList.remove('d-none');
                     document.getElementById('validateError').classList.add('d-none');
                 } else {
                     document.getElementById('validateSuccess').classList.add('d-none');
                     document.getElementById('validateError').classList.remove('d-none');
-                    document.getElementById('validateErrorMessage').textContent = "验证失败: " + (data.errors ? data.errors.join(", ") : "未知错误");
+                    
+                    // 根据响应结构处理错误信息
+                    let errorMessage = "验证失败";
+                    if (data.errors && data.errors.length > 0) {
+                        errorMessage += ": " + data.errors.join(", ");
+                    } else if (data.message) {
+                        errorMessage += ": " + data.message;
+                    } else if (data.error) {
+                        errorMessage += ": " + data.error;
+                    } else {
+                        errorMessage += ": 请检查配置格式是否符合要求";
+                    }
+                    
+                    document.getElementById('validateErrorMessage').textContent = errorMessage;
                 }
                 new bootstrap.Modal(document.getElementById('validateModal')).show();
             })

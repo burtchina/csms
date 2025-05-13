@@ -340,7 +340,6 @@ def delete_template(template_id):
 
 
 @policy_bp.route('/validate', methods=['POST'])
-@jwt_required()
 def validate_policy_config():
     """验证策略配置"""
     # 获取请求数据
@@ -366,12 +365,12 @@ def validate_policy_config():
     
     if result.get('success'):
         return jsonify({
-            'status': 'success',
+            'success': True,
             'message': '策略配置有效'
         }), 200
     else:
         return jsonify({
-            'status': 'error',
+            'success': False,
             'message': '策略配置无效',
             'errors': result.get('errors', [])
         }), 400 

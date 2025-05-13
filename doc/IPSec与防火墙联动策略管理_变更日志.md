@@ -1,5 +1,90 @@
 # IPSec与防火墙联动策略管理变更日志
 
+## 2024-07-05 修复策略模板应用功能
+
+### 问题背景
+
+在创建安全策略页面，点击"使用此模板"按钮时出现JSON解析错误：`Expected property name or '}' in JSON at position 1 (line 1 column 2)`。这导致无法正常应用模板配置，影响用户体验和工作效率。
+
+### 修复内容
+
+1. **改进模板配置数据存储方式**
+   - 将模板配置数据从HTML元素的`data-config`属性迁移到隐藏的`textarea`元素中
+   - 避免因HTML属性编码规则导致的JSON格式破坏
+   - 确保复杂的JSON数据能够完整准确地传递给前端JavaScript
+
+2. **优化JavaScript解析逻辑**
+   - 重构模板按钮点击事件处理代码，从隐藏的`textarea`元素读取配置
+   - 增强错误处理机制，添加更详细的错误日志记录
+   - 提供更友好的错误提示，帮助用户了解问题所在
+
+3. **增强用户交互反馈**
+   - 添加模板应用成功的视觉反馈，包括图标和文本变化
+   - 临时禁用按钮防止用户重复点击导致潜在问题
+   - 改进控制台日志记录，便于开发和调试过程中的问题排查
+
+### 技术实现
+
+1. **HTML结构修改**
+   ```html
+   <!-- 修改前: 将配置数据存储在data属性中 -->
+   <div class="card h-100 template-card" data-id="{{ template.id }}" data-config="{{ template.config | tojson }}">
+       <!-- 卡片内容 -->
+   </div>
+
+   <!-- 修改后: 使用隐藏textarea存储配置数据 -->
+   <div class="card h-100 template-card" data-id="{{ template.id }}" data-type="{{ template.type }}">
+       <!-- 卡片内容 -->
+       <textarea class="d-none template-config" aria-hidden="true" aria-label="模板配置数据">{{ template.config | tojson }}</textarea>
+   </div>
+   ```
+
+2. **JavaScript处理逻辑更新**
+   ```javascript
+   // 修改前: 直接从data属性获取配置
+   const config = JSON.parse(card.getAttribute('data-config'));
+
+   // 修改后: 从textarea元素读取配置
+   const configTextarea = card.querySelector('.template-config');
+   if (!configTextarea) {
+       throw new Error('找不到模板配置数据');
+   }
+   const config = JSON.parse(configTextarea.value);
+   ```
+
+3. **用户交互改进**
+   ```javascript
+   // 添加视觉反馈
+   this.querySelector('.template-applied-icon').classList.remove('d-none');
+   this.querySelector('.template-btn-text').textContent = '已应用';
+   
+   // 临时禁用按钮防止重复点击
+   this.disabled = true;
+   
+   setTimeout(() => {
+       this.querySelector('.template-applied-icon').classList.add('d-none');
+       this.querySelector('.template-btn-text').textContent = '使用此模板';
+       this.disabled = false;
+   }, 1500);
+   ```
+
+### 改进效果
+
+1. **功能修复**
+   - 用户现在可以正常应用模板配置到策略创建表单
+   - 解决了所有模板类型的JSON解析错误问题
+   - 确保复杂模板配置的完整传递和正确应用
+
+2. **用户体验提升**
+   - 点击按钮后有明确的视觉反馈，确认模板已成功应用
+   - 避免因模板应用失败导致的用户困惑
+   - 提供更专业、流畅的模板应用体验
+
+3. **代码健壮性提升**
+   - 更可靠的数据传递机制，不受HTML属性编码限制
+   - 完善的错误处理，便于快速识别和解决问题
+   - 符合Web无障碍标准，保持良好的可访问性
+
 ## 2024-07-02 彻底移除演示模式提示
 
 ### 问题背景
