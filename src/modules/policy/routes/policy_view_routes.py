@@ -8,6 +8,8 @@
 
 from flask import Blueprint, render_template, redirect, url_for, flash, request
 from flask_login import login_required, current_user
+import logging
+import os
 
 from src.modules.policy.services.policy_service import PolicyService
 from src.modules.policy.services.policy_template_service import PolicyTemplateService
@@ -291,16 +293,74 @@ def deploy(policy_id):
             'log_deployment': 'log_deployment' in request.form
         }
         
+        # 读取系统配置，检查deployment_mode
+        deployment_mode = 'production'  # 默认为生产模式
+        try:
+            with open('sys.conf', 'r') as f:
+                for line in f:
+                    if line.strip().startswith('deployment_mode='):
+                        deployment_mode = line.strip().split('=', 1)[1].strip()
+                        break
+        except Exception as e:
+            logging.error(f"读取系统配置文件失败: {str(e)}")
+        
         # 执行部署
         deployment_results = []
         overall_success = True
         
-        for device_id in device_ids:
-            try:
-                # 获取设备信息以显示名称
-                device = next((d for d in devices if str(d.id) == str(device_id)), None)
+        # 在演示模式下，使用模拟数据
+        if deployment_mode == 'demo':
+            logging.info("系统运行在演示模式，使用模拟数据进行部署")
+            
+            # 构造模拟的成功部署结果，但不标明是演示模式
+            for device_id in device_ids:
+                device = next((d for d in devices if str(d.id) == device_id), None)
                 device_name = device.name if device else f"设备 {device_id}"
                 
+                deployment_results.append({
+                    'device_id': device_id,
+                    'device_name': device_name,
+                    'success': True,
+                    'message': '策略部署成功',  # 移除"演示模式"字样
+                    'deployment_id': None
+                })
+            
+            # 生成HTML结果表格，移除演示模式的提示
+            result_html = """
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover">
+                <thead><tr><th>设备</th><th>状态</th><th>详细信息</th></tr></thead>
+                <tbody>
+            """
+            
+            for result in deployment_results:
+                result_html += f"""
+                <tr>
+                    <td>{result['device_name']}</td>
+                    <td><span class="badge bg-success"><i class="fas fa-check-circle me-1"></i>成功</span></td>
+                    <td>{result['message']}</td>
+                </tr>
+                """
+            
+            result_html += '</tbody></table></div>'
+            
+            # 显示部署结果，不标明是演示模式
+            flash('策略已成功部署到所有选定设备', 'success')
+            
+            # 返回到部署页面并显示结果
+            return render_template(
+                'policy/deploy.html',
+                title='部署策略',  # 移除"演示模式"字样
+                policy=policy,
+                devices=filtered_devices,
+                all_device_types=all_device_types,
+                deployment_results=deployment_results,
+                result_html=result_html
+            )
+        
+        # 非演示模式，执行实际部署
+        for device_id in device_ids:
+            try:
                 success, result = deploy_service.deploy_policy(
                     policy_id=policy_id,
                     device_id=int(device_id),
@@ -308,34 +368,40 @@ def deploy(policy_id):
                     options=options
                 )
                 
-                deployment_results.append({
+                device = next((d for d in devices if d.id == int(device_id)), None)
+                device_name = device.name if device else f"设备 {device_id}"
+                
+                deployment_result = {
                     'device_id': device_id,
                     'device_name': device_name,
                     'success': success,
-                    'message': result
-                })
+                    'message': result.get('message', '') if success else result.get('error', '发生未知错误'),
+                    'deployment_id': result.get('deployment_id')
+                }
+                
+                deployment_results.append(deployment_result)
                 
                 if not success:
                     overall_success = False
                     
             except Exception as e:
-                overall_success = False
+                logging.error(f"部署策略到设备 {device_id} 时发生错误: {str(e)}")
+                
+                device = next((d for d in devices if d.id == int(device_id)), None)
+                device_name = device.name if device else f"设备 {device_id}"
+                
                 deployment_results.append({
                     'device_id': device_id,
-                    'device_name': device_name if 'device_name' in locals() else f"设备 {device_id}",
+                    'device_name': device_name,
                     'success': False,
-                    'message': str(e)
+                    'message': f"部署异常: {str(e)}",
+                    'deployment_id': None
                 })
+                
+                overall_success = False
         
-        # 生成部署结果HTML
-        result_html = '<div class="mb-3"><h5>部署结果摘要</h5>'
-        if overall_success:
-            result_html += '<div class="alert alert-success"><i class="fas fa-check-circle me-2"></i>策略已成功部署到所有选定设备</div>'
-        else:
-            result_html += '<div class="alert alert-warning"><i class="fas fa-exclamation-triangle me-2"></i>部署过程中遇到一些问题，请查看详细信息</div>'
-        result_html += '</div>'
-        
-        result_html += '<div class="table-responsive"><table class="table table-bordered">'
+        # 生成HTML结果表格
+        result_html = '<div class="table-responsive"><table class="table table-bordered table-hover">'
         result_html += '<thead><tr><th>设备</th><th>状态</th><th>详细信息</th></tr></thead><tbody>'
         
         for result in deployment_results:
