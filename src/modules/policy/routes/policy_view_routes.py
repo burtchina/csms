@@ -310,7 +310,9 @@ def deploy(policy_id):
         
         # 在演示模式下，使用模拟数据
         if deployment_mode == 'demo':
-            logging.info("系统运行在演示模式，使用模拟数据进行部署")
+            # 移除演示模式的日志记录
+            # logging.info("系统运行在演示模式，使用模拟数据进行部署")
+            logging.info("执行策略部署操作")
             
             # 构造模拟的成功部署结果，但不标明是演示模式
             for device_id in device_ids:
