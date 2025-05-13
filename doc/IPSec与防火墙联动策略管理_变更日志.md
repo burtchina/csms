@@ -2099,6 +2099,109 @@ devices = []
    - 建立完整的模板测试机制
    - 优化模板渲染性能
 
+## 2025-05-13 循环导入与应用上下文问题修复
+
+### 问题背景
+
+在系统启动过程中，发现两个主要问题影响了IPSec与防火墙联动策略系统的正常初始化：
+
+1. **循环导入问题**：控制台显示错误`cannot import name 'app' from 'src.app' (D:\project\github\0513\csms\src\app.py)`，导致系统无法正确初始化预设模板。
+
+2. **应用上下文缺失问题**：修复循环导入后，出现新的错误`No application found. Either work inside a view function or push an application context.`，表明在没有有效Flask应用上下文的情况下尝试执行数据库操作。
+
+### 解决方案
+
+1. **循环导入问题修复**
+   - 分析发现，在`src/init_policy_templates.py`中直接导入`from src.app import app`，而`src/app.py`又导入了`init_policy_templates`，形成了典型的循环导入
+   - 修改`src/init_policy_templates.py`，移除直接导入app的方式，改为使用Flask的`current_app`或动态导入
+   - 在`src/app.py`中使用`with app.app_context()`创建应用上下文，确保在该上下文中调用`init_policy_templates()`
+
+2. **应用上下文问题修复**
+   - 确保在执行数据库操作时始终在有效的应用上下文中
+   - 在`src/app.py`中添加对`app_context()`的正确使用，包装所有需要数据库操作的代码
+   - 移除`init_policy_templates.py`中不必要的`current_app`导入，因为应用上下文已经由调用者提供
+
+3. **导入路径统一**
+   - 修复`src/init_policy_templates.py`中的导入路径问题，将`src.modules.auth.models.user`改为`src.modules.auth.models`
+   - 确保使用统一的数据库会话实例，解决数据库连接问题
+
+### 技术细节
+
+1. **循环导入解决方案**
+   ```python
+   # 修改前 - src/init_policy_templates.py
+   from src.app import app  # 导致循环导入
+   
+   # 修改后 - src/init_policy_templates.py
+   # 移除直接导入，通过外部提供应用上下文
+   ```
+
+2. **应用上下文处理**
+   ```python
+   # 修改前 - src/app.py
+   try:
+       from src.init_policy_templates import init_policy_templates
+       init_policy_templates()  # 无应用上下文
+       logger.info("已初始化IPSec与防火墙联动策略系统预设模板")
+   except Exception as e:
+       logger.warning(f"初始化IPSec与防火墙联动策略系统预设模板失败: {str(e)}")
+   
+   # 修改后 - src/app.py
+   try:
+       from src.init_policy_templates import init_policy_templates
+       # 确保在应用上下文中执行
+       with app.app_context():
+           init_policy_templates()
+       logger.info("已初始化IPSec与防火墙联动策略系统预设模板")
+   except Exception as e:
+       logger.warning(f"初始化IPSec与防火墙联动策略系统预设模板失败: {str(e)}")
+   ```
+
+3. **导入路径修复**
+   ```python
+   # 修改前 - src/init_policy_templates.py
+   from src.modules.auth.models.user import User  # 错误的导入路径
+   
+   # 修改后 - src/init_policy_templates.py
+   from src.modules.auth.models import User  # 正确的导入路径
+   ```
+
+### 设计原则应用
+
+1. **依赖倒置原则(DIP)**
+   - 通过应用上下文管理，减少模块间的直接依赖
+   - 避免在初始化脚本中直接引用全局应用实例
+
+2. **单一职责原则(SRP)**
+   - 分离初始化脚本与应用创建的职责
+   - 让每个模块专注于自己的核心功能
+
+3. **开放封闭原则(OCP)**
+   - 通过上下文管理，使初始化脚本可以在不同环境中重用
+   - 不需要修改脚本代码即可适应不同的应用环境
+
+4. **KISS原则**
+   - 使用简单直接的解决方案，避免复杂的依赖管理
+   - 通过清晰的上下文边界，使代码更易于理解和维护
+
+### 后续计划
+
+1. **全面代码审查**
+   - 对所有模块进行依赖分析，检测并解决潜在的循环依赖
+   - 确保所有数据库操作都在正确的应用上下文中执行
+
+2. **初始化流程优化**
+   - 重构系统初始化流程，改进模块加载顺序
+   - 设计更灵活的初始化机制，支持按需加载模块
+
+3. **上下文管理增强**
+   - 在后台任务和异步操作中添加更健壮的上下文管理
+   - 实现统一的上下文处理工具函数，减少重复代码
+
+4. **文档完善**
+   - 更新开发文档，添加关于模块依赖和上下文管理的最佳实践
+   - 为初始化流程添加详细说明，帮助开发人员理解系统启动机制
+
 ## 系统架构总结
 
 ### 核心模块组成
@@ -2156,3 +2259,5 @@ src/modules/policy/
 2. **UI交互优化**：修复了模态框闪烁问题，提升了用户体验，确保对话框位置稳定。
 
 3. **代码质量提升**：遵循DRY原则，消除了冗余代码，提高了系统可维护性。
+
+4. **循环导入与上下文管理**：修复了系统初始化过程中的循环导入问题，并改进了Flask应用上下文的管理，提高了系统的稳定性。

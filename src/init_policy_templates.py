@@ -9,30 +9,38 @@
 import sys
 import os
 from datetime import datetime
+import logging
 
 # 添加项目根目录到Python路径
 sys.path.append(os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
 
+# 保持与策略模型一致的导入
 from src.core.db import db
-from src.app import app
+# 不再需要current_app，因为在app.py中使用app_context
+# from flask import current_app
 from src.modules.policy.models.policy_template import PolicyTemplate
-from src.modules.auth.models.user import User
+# 修复导入路径
+from src.modules.auth.models import User
 
 def init_policy_templates():
     """初始化系统预设IPSec与防火墙联动策略模板"""
+    # 添加日志
+    logging.info("开始初始化系统预设IPSec与防火墙联动策略模板")
+    
     # 检查是否已存在系统预设模板
     existing_templates = PolicyTemplate.query.filter_by(is_system=True, type='ipsec_firewall').all()
     if existing_templates:
-        print(f"已存在 {len(existing_templates)} 个系统预设IPSec与防火墙联动策略模板，跳过初始化。")
+        logging.info(f"已存在 {len(existing_templates)} 个系统预设IPSec与防火墙联动策略模板，跳过初始化。")
         return
     
     # 获取管理员用户ID
     admin_user = User.query.filter_by(is_admin=True).first()
     if not admin_user:
-        print("错误：找不到管理员用户，无法创建系统预设模板。")
+        logging.warning("错误：找不到管理员用户，无法创建系统预设模板。")
         return
     
     admin_id = admin_user.id
+    logging.info(f"找到管理员用户ID: {admin_id}，继续初始化模板")
     
     # 定义模板列表
     templates = [
@@ -204,18 +212,25 @@ def init_policy_templates():
     ]
     
     # 创建模板
-    with app.app_context():
-        try:
-            for template_data in templates:
-                template = PolicyTemplate(**template_data)
-                db.session.add(template)
-            
-            db.session.commit()
-            print(f"成功创建 {len(templates)} 个系统预设IPSec与防火墙联动策略模板。")
-        except Exception as e:
-            db.session.rollback()
-            print(f"创建系统预设模板失败: {str(e)}")
+    try:
+        logging.info(f"开始创建 {len(templates)} 个系统预设模板")
+        for template_data in templates:
+            template = PolicyTemplate(**template_data)
+            db.session.add(template)
+        
+        db.session.commit()
+        logging.info(f"成功创建 {len(templates)} 个系统预设IPSec与防火墙联动策略模板")
+    except Exception as e:
+        db.session.rollback()
+        logging.error(f"创建系统预设模板失败: {str(e)}")
+        raise  # 重新抛出异常，让调用者知道出了问题
 
 if __name__ == "__main__":
+    # 直接运行此脚本时，需要创建应用上下文
+    from src.app import create_app
+    app = create_app()
+    # 设置日志
+    logging.basicConfig(level=logging.INFO, 
+                       format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     with app.app_context():
         init_policy_templates() 
