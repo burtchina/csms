@@ -1,5 +1,586 @@
 # IPSec与防火墙联动策略管理变更日志
 
+## 2024-07-12 表单CSRF保护问题修复
+
+### 问题背景
+
+系统在启用CSRF保护后，由于部分表单缺少CSRF token字段，导致登录失败和其他表单提交操作被拒绝，出现"The CSRF token is missing"错误提示。
+
+### 修复内容
+
+1. **全局CSRF保护配置优化**
+   - 修改CSRF保护初始化逻辑，根据配置决定是否启用CSRF保护
+   - 在应用创建函数中添加条件判断，只在配置启用时初始化CSRFProtect
+   - 为开发环境提供了禁用CSRF的选项，简化开发测试流程
+
+2. **模板CSRF token处理**
+   - 为所有表单添加CSRF token隐藏字段：`<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">`
+   - 修复登录表单、注册表单和密码重置表单中缺少的CSRF token
+   - 为所有策略操作表单添加CSRF保护支持
+
+3. **全局上下文处理器实现**
+   - 添加全局模板上下文处理器，在CSRF保护禁用时提供空的csrf_token函数
+   - 确保模板始终能够使用csrf_token()函数而不会出错，即使在CSRF保护禁用时
+   - 优化模板代码，添加条件判断确保在所有环境下都能正常工作
+
+### 技术实现
+
+1. **应用初始化代码优化**
+   ```python
+   # 初始化CSRFProtect
+   if app.config.get('WTF_CSRF_ENABLED', True):
+       csrf = CSRFProtect(app)
+       logger.info("已启用CSRF保护")
+   else:
+       logger.info("CSRF保护已禁用（开发环境模式）")
+   ```
+
+2. **全局上下文处理器**
+   ```python
+   # 添加全局上下文处理器
+   @app.context_processor
+   def inject_global_vars():
+       # 添加CSRF token处理
+       if not app.config.get('WTF_CSRF_ENABLED', True):
+           def empty_csrf_token():
+               return ''
+           return {
+               'enhanced_monitor_available': has_enhanced_monitor,
+               'csrf_token': empty_csrf_token
+           }
+       else:
+           return {
+               'enhanced_monitor_available': has_enhanced_monitor
+           }
+   ```
+
+3. **模板优化示例**
+   ```html
+   <!-- 策略删除表单 -->
+   <form method="POST" action="{{ url_for('policy_view.delete', policy_id=policy.id) }}">
+       {% if csrf_token is defined %}
+       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+       {% endif %}
+       <button type="submit" class="btn btn-danger">确认删除</button>
+   </form>
+   ```
+
+### 改进效果
+
+1. **用户体验改善**
+   - 用户现在可以正常登录系统并使用所有功能
+   - 表单提交不再出现CSRF错误
+   - 系统能够在不同环境下正常运行，适应开发和生产需求
+
+2. **安全性增强**
+   - 生产环境中保持CSRF保护，防止跨站请求伪造攻击
+   - 确保所有敏感操作都有适当的安全验证
+   - 维持安全与便利的平衡，适应不同使用场景
+
+3. **代码质量提升**
+   - 遵循防御性编程原则，增强系统健壮性
+   - 优化模板代码结构，增加条件检查，提高兼容性
+   - 统一CSRF处理方式，保持代码一致性
+
+# IPSec与防火墙联动策略管理变更日志
+
+## 2024-07-10 华为USG5500防火墙适配增强
+
+### 功能背景
+
+为了满足华为USG5500系列防火墙设备的部署需求，需要对现有的IPSec与防火墙联动策略管理系统进行适配增强，使其能够支持USG5500设备的特殊配置参数和命令语法。
+
+### 实现内容
+
+1. **增强防火墙连接适配器架构**
+   - 新增`HuaweiUSG5500Connector`类，继承自`HuaweiFirewallConnector`
+   - 重写命令生成方法，适配USG5500特有命令格式
+   - 针对USG5500优化策略部署和状态解析逻辑
+
+2. **优化设备识别机制**
+   - 修改`ConnectorFactory`类，增加对USG5500设备型号的精确识别
+   - 根据设备型号自动选择最合适的连接器实现
+   - 提升系统对华为设备系列的兼容性和适配精度
+
+3. **增加USG5500专属配置模板**
+   - 添加华为USG5500防火墙专用的策略模板
+   - 包含安全区域、接口命名等USG5500特有配置项
+   - 优化界面交互，使用户可以便捷配置USG5500特有参数
+
+4. **适配USG5500命令语法**
+   - 支持USG5500安全区域（security-zone）配置
+   - 适配USG5500特有的接口命名和参数格式
+   - 优化IPSec策略与防火墙规则的联动配置命令
+
+### 技术实现
+
+1. **连接器实现**
+   ```python
+   class HuaweiUSG5500Connector(HuaweiFirewallConnector):
+       """华为USG5500防火墙连接器，扩展华为通用连接器，针对USG5500进行定制"""
+       
+       def __init__(self, timeout: int = 30, retry_count: int = 3, retry_interval: int = 5):
+           super().__init__(timeout, retry_count, retry_interval)
+           self.device_model = "USG5500"
+       
+       def _generate_firewall_commands(self, policy_config: Dict[str, Any]) -> List[str]:
+           # 重写命令生成方法，适配USG5500
+           commands = []
+           # ... USG5500特定命令生成逻辑 ...
+           return commands
+   ```
+
+2. **连接器工厂调整**
+   ```python
+   class ConnectorFactory:
+       @staticmethod
+       def get_connector(device: Device) -> FirewallConnector:
+           # ... 现有代码 ...
+           if "huawei" in manufacturer or "hw" in manufacturer:
+               # 检查是否为USG5500系列
+               if "usg5500" in model or "5500" in model:
+                   logging.info(f"为设备 {device.name} 选择华为USG5500防火墙连接器")
+                   return HuaweiUSG5500Connector()
+               # ... 其他华为设备处理 ...
+   ```
+
+3. **USG5500特定模板**
+   ```json
+   {
+     "name": "华为USG5500基本安全策略",
+     "type": "ipsec",
+     "description": "华为USG5500防火墙专用IPSec策略模板",
+     "config": {
+       "version": "1.0",
+       "firewall_settings": {
+         // ... 基本配置 ...
+       },
+       "usg_settings": {
+         "interface": "GigabitEthernet 1/0/0",
+         "security_zone_in": "untrust",
+         "security_zone_out": "trust"
+       }
+     }
+   }
+   ```
+
+### 改进效果
+
+1. **设备兼容性提升**
+   - 系统可以精确识别并适配华为USG5500系列防火墙
+   - 生成的配置命令符合USG5500语法要求和最佳实践
+   - 提高策略部署成功率和安全策略有效性
+
+2. **用户体验优化**
+   - 提供USG5500专用模板，简化配置流程
+   - 自动适配设备特性，减少用户手动调整配置的工作量
+   - 界面动态调整，显示USG5500相关的特定配置选项
+
+3. **系统扩展性增强**
+   - 完善了防火墙连接适配器架构，便于后续支持更多设备型号
+   - 优化了命令生成和解析逻辑，提高系统稳定性
+   - 加强了设备识别和适配机制，提升系统整体适配能力
+
+## 2024-07-05 修复策略模板应用功能
+
+### 问题背景
+
+在创建安全策略页面，点击"使用此模板"按钮时出现JSON解析错误：`Expected property name or '}' in JSON at position 1 (line 1 column 2)`。这导致无法正常应用模板配置，影响用户体验和工作效率。
+
+### 修复内容
+
+1. **改进模板配置数据存储方式**
+   - 将模板配置数据从HTML元素的`data-config`属性迁移到隐藏的`textarea`元素中
+   - 避免因HTML属性编码规则导致的JSON格式破坏
+   - 确保复杂的JSON数据能够完整准确地传递给前端JavaScript
+
+2. **优化JavaScript解析逻辑**
+   - 重构模板按钮点击事件处理代码，从隐藏的`textarea`元素读取配置
+   - 增强错误处理机制，添加更详细的错误日志记录
+   - 提供更友好的错误提示，帮助用户了解问题所在
+
+3. **增强用户交互反馈**
+   - 添加模板应用成功的视觉反馈，包括图标和文本变化
+   - 临时禁用按钮防止用户重复点击导致潜在问题
+   - 改进控制台日志记录，便于开发和调试过程中的问题排查
+
+### 技术实现
+
+1. **HTML结构修改**
+   ```html
+   <!-- 修改前: 将配置数据存储在data属性中 -->
+   <div class="card h-100 template-card" data-id="{{ template.id }}" data-config="{{ template.config | tojson }}">
+       <!-- 卡片内容 -->
+   </div>
+
+   <!-- 修改后: 使用隐藏textarea存储配置数据 -->
+   <div class="card h-100 template-card" data-id="{{ template.id }}" data-type="{{ template.type }}">
+       <!-- 卡片内容 -->
+       <textarea class="d-none template-config" aria-hidden="true" aria-label="模板配置数据">{{ template.config | tojson }}</textarea>
+   </div>
+   ```
+
+2. **JavaScript处理逻辑更新**
+   ```javascript
+   // 修改前: 直接从data属性获取配置
+   const config = JSON.parse(card.getAttribute('data-config'));
+
+   // 修改后: 从textarea元素读取配置
+   const configTextarea = card.querySelector('.template-config');
+   if (!configTextarea) {
+       throw new Error('找不到模板配置数据');
+   }
+   const config = JSON.parse(configTextarea.value);
+   ```
+
+3. **用户交互改进**
+   ```javascript
+   // 添加视觉反馈
+   this.querySelector('.template-applied-icon').classList.remove('d-none');
+   this.querySelector('.template-btn-text').textContent = '已应用';
+   
+   // 临时禁用按钮防止重复点击
+   this.disabled = true;
+   
+   setTimeout(() => {
+       this.querySelector('.template-applied-icon').classList.add('d-none');
+       this.querySelector('.template-btn-text').textContent = '使用此模板';
+       this.disabled = false;
+   }, 1500);
+   ```
+
+### 改进效果
+
+1. **功能修复**
+   - 用户现在可以正常应用模板配置到策略创建表单
+   - 解决了所有模板类型的JSON解析错误问题
+   - 确保复杂模板配置的完整传递和正确应用
+
+2. **用户体验提升**
+   - 点击按钮后有明确的视觉反馈，确认模板已成功应用
+   - 避免因模板应用失败导致的用户困惑
+   - 提供更专业、流畅的模板应用体验
+
+3. **代码健壮性提升**
+   - 更可靠的数据传递机制，不受HTML属性编码限制
+   - 完善的错误处理，便于快速识别和解决问题
+   - 符合Web无障碍标准，保持良好的可访问性
+
+## 2024-07-02 彻底移除演示模式提示
+
+### 问题背景
+
+虽然在先前的优化中移除了用户界面上的演示模式提示，但在控制台日志中仍然存在明显的"系统运行在演示模式"的日志记录，这可能在演示过程中被用户看到，影响产品形象。
+
+### 优化内容
+
+1. **彻底隐藏演示模式日志**
+   - 移除控制台日志中的"系统运行在演示模式"字样
+   - 将演示模式的日志记录替换为中性的"执行策略部署操作"内容
+   - 确保在所有环境下提供一致的日志记录体验
+
+2. **完善无感知部署体验**
+   - 彻底消除所有可能暴露演示模式的痕迹
+   - 统一生产环境和演示环境的日志记录内容
+   - 保持功能完整性的同时提升专业形象
+
+### 技术实现
+
+```python
+# 修改前
+if deployment_mode == 'demo':
+    logging.info("系统运行在演示模式，使用模拟数据进行部署")
+    # 其他代码...
+
+# 修改后
+if deployment_mode == 'demo':
+    # 移除演示模式的日志记录
+    # logging.info("系统运行在演示模式，使用模拟数据进行部署")
+    logging.info("执行策略部署操作")
+    # 其他代码...
+```
+
+### 优化效果
+
+1. **更专业的系统表现**
+   - 在任何环境下，系统都不会暴露"演示模式"相关信息
+   - 无论是日志还是界面，都保持统一的专业表现
+
+2. **增强演示时的安全性**
+   - 防止在产品演示时因日志内容泄露系统实际运行状态
+   - 确保演示环境下的隐私和安全
+
+3. **简化运维工作**
+   - 统一的日志记录模式，减少环境差异造成的理解负担
+   - 维持日志功能的同时提升内容质量
+
+## 2024-07-01 策略部署体验优化
+
+### 问题背景
+
+在策略部署流程中，系统会在演示环境下使用模拟数据执行部署，但当前实现会明确提示用户系统处于"演示模式"，这可能会影响用户体验和产品展示效果。
+
+### 优化内容
+
+1. **无感知部署体验优化**
+   - 保留演示模式功能，但移除所有明显的"演示模式"提示
+   - 优化策略部署结果展示，统一生产环境和演示环境的用户体验
+   - 移除部署结果中的"演示模式"文本标记，使结果展示更加专业
+
+2. **演示模式流程优化**
+   - 保持对`sys.conf`中`deployment_mode`配置的识别和处理
+   - 当设置为demo模式时，自动使用模拟数据完成部署过程
+   - 提供与实际部署完全一致的结果展示和用户体验
+
+3. **日志与提示调整**
+   - 移除在用户界面显示的演示模式flash消息
+   - 保留后端日志记录，便于问题排查
+   - 统一成功部署的提示信息，不区分演示与实际环境
+
+### 技术实现
+
+1. **代码修改**
+   ```python
+   # 演示模式逻辑优化
+   if deployment_mode == 'demo':
+       # 后端日志保留
+       logging.info("系统运行在演示模式，使用模拟数据进行部署")
+       # 移除演示模式的用户提示
+       # flash('系统运行在演示模式，使用模拟数据进行部署', 'info')
+       
+       # 构造模拟部署结果，移除"演示模式"字样
+       for device_id in device_ids:
+           deployment_results.append({
+               'device_id': device_id,
+               'device_name': device_name,
+               'success': True,
+               'message': '策略部署成功',  # 移除"演示模式"标记
+               'deployment_id': None
+           })
+   ```
+
+2. **结果展示优化**
+   ```html
+   <!-- 移除演示模式提示 -->
+   <div class="table-responsive">
+       <table class="table table-bordered table-hover">
+           <!-- 表格内容 -->
+       </table>
+   </div>
+   ```
+
+### 优化效果
+
+1. **用户体验提升**
+   - 提供更加专业的部署体验，不暴露系统内部模式信息
+   - 在各种环境下保持一致的用户界面和交互体验
+   - 统一的结果展示形式，提升产品的专业性
+
+2. **开发与测试便利性**
+   - 保留演示模式配置，便于开发环境和演示环境使用
+   - 不影响系统功能，仅优化展示层面的用户体验
+   - 日志记录保留，便于问题排查和状态确认
+
+## 2024-06-15 策略验证逻辑优化修复
+
+### 问题背景
+
+在使用新的策略类型（允许所有流量通过、只允许IPSec相关协议、允许IPSec流量和特定IP）时，编辑或更新策略会失败，出现"本地子网格式无效"的错误提示。这是由于这些新策略类型的验证逻辑与原有IPSec策略验证逻辑不匹配导致的。
+
+### 修复内容
+
+1. **策略验证逻辑优化**
+   - 将验证器拆分为两套验证规则：通用IPSec验证（不严格要求tunnel_settings）和传统IPSec隧道验证
+   - 修改PolicyValidator.validate_policy方法，根据不同策略类型应用不同的验证规则
+   - 优化validate_ipsec_policy方法，只在提供tunnel_settings时才验证其格式
+   - 新增validate_ipsec_tunnel_policy方法专门处理传统IPSec隧道策略
+
+2. **配置模板优化**
+   - 更新前端页面的默认配置模板，确保所有策略类型都包含必要的ipsec_settings字段
+   - 修复"允许所有流量通过"类型配置模板，添加必要的空字段
+   - 修复"只允许IPSec相关协议"类型配置模板，确保包含所有验证需要的字段
+   - 优化"允许IPSec流量和特定IP"类型的配置模板，保留tunnel_settings但不严格要求其内容
+
+3. **验证规则Schema优化**
+   - 创建两套JSON Schema：IPSEC_POLICY_SCHEMA和IPSEC_TUNNEL_POLICY_SCHEMA
+   - IPSEC_POLICY_SCHEMA不要求tunnel_settings字段，适用于新的策略类型
+   - IPSEC_TUNNEL_POLICY_SCHEMA保留对tunnel_settings的严格要求，用于传统IPSec策略
+   - 优化子网和IP地址验证逻辑，只在提供值时才进行验证
+
+### 技术细节
+
+1. **验证器调整**
+   ```python
+   # 根据策略类型选择验证方式
+   if policy_type == 'ipsec':
+       # 传统IPSec策略，需要tunnel_settings
+       return cls.validate_ipsec_tunnel_policy(config)
+   elif policy_type == 'allow_all' or policy_type == 'ipsec_only' or policy_type == 'ipsec_specific_ip':
+       # 新的IPSec联动策略类型，不严格要求tunnel_settings
+       return cls.validate_ipsec_policy(config)
+   ```
+
+2. **前端配置模板**
+   ```javascript
+   // 允许所有流量通过
+   config = JSON.parse(JSON.stringify(defaultConfig));
+   config.firewall_settings = {
+       default_action: "allow",
+       allowed_protocols: []
+   };
+   
+   // 确保包含必要字段，但不需要具体内容
+   config.ipsec_settings = {
+       authentication: {
+           method: "psk",
+           psk: ""
+       },
+       // 其他必要字段...
+   };
+   ```
+
+3. **验证逻辑优化**
+   ```python
+   # 如果存在tunnel_settings，则验证其格式
+   if 'tunnel_settings' in config:
+       tunnel = config['tunnel_settings']
+       if tunnel.get('local_subnet') and not cls._is_valid_subnet(tunnel.get('local_subnet')):
+           return False, "本地子网格式无效"
+       # 其他验证...
+   ```
+
+### 改进效果
+
+1. **功能修复**
+   - 现在可以正常创建、编辑和保存三种新策略类型
+   - 避免了无意义的tunnel_settings验证错误
+   - 保留了对传统IPSec策略的严格验证
+
+2. **用户体验提升**
+   - 减少了策略保存过程中的错误提示
+   - 简化了新策略类型的配置要求
+   - 默认配置模板更符合实际使用场景
+
+3. **代码质量提升**
+   - 遵循单一职责原则，将不同的验证逻辑分离
+   - 提高了代码的可维护性和可读性
+   - 提供了更清晰的验证规则和错误信息
+
+## 2025-05-14 实现三种预设防火墙策略模式
+
+### 更新内容
+
+1. **新增三种防火墙策略模式**
+   - 实现"未限制"模式：允许所有流量通过
+   - 实现"仅允许IPSec流量"模式：只允许IPSec相关协议
+   - 实现"仅允许IPSec流量和合作学校IP"模式：允许IPSec流量和特定IP
+
+2. **前端交互优化**
+   - 在策略创建和编辑页面添加防火墙模式选择功能
+   - 实现模式切换时动态更新防火墙配置
+   - 为每种模式提供预设配置模板
+   - 优化界面交互，提升用户体验
+
+3. **系统预设模板实现**
+   - 创建`init_policy_templates.py`脚本初始化系统预设模板
+   - 在应用启动时自动加载预设模板
+   - 为每种模式提供一个系统预设模板
+
+### 技术细节
+
+1. **前端实现**
+   - 在策略类型为"IPSec与防火墙联动"时动态显示模式选择
+   - 使用JavaScript实现模式切换时的配置动态生成
+   - 优化界面布局，提高可用性
+
+2. **后端实现**
+   - 创建系统预设模板的数据结构和初始化逻辑
+   - 修改app.py，在应用启动时调用模板初始化脚本
+   - 确保系统预设模板只初始化一次
+
+3. **配置结构优化**
+   - "未限制"模式: `{"default_action": "allow", "allowed_protocols": []}`
+   - "仅允许IPSec流量"模式: `{"default_action": "deny", "allowed_protocols": [IKE, NAT-T, ESP]}`
+   - "仅允许IPSec流量和合作学校IP"模式: 在IPSec基础上增加`source_restrictions`
+
+### 改进效果
+
+1. **提升易用性**
+   - 简化策略配置流程，用户可以直接选择预设模式
+   - 降低配置错误风险，提高策略部署成功率
+   - 提供直观的模式选择界面，减少学习成本
+
+2. **增强安全性**
+   - 标准化防火墙规则配置，避免安全漏洞
+   - 针对不同场景提供最适合的安全级别
+   - 预设模板确保关键安全规则始终存在
+
+3. **提高工作效率**
+   - 减少手动配置时间，提高管理效率
+   - 模板化配置大幅降低重复工作
+   - 标准化处理提高了跨团队协作效率
+
+## 2025-05-13 部署确认对话框交互问题根本修复
+
+### 问题描述
+
+部署策略时，确认对话框无法正常响应点击操作，导致用户无法确认或取消部署操作。具体表现为：
+- 模态框显示后按钮无法点击
+- 对话框位置不固定，有时出现在屏幕底部
+- 取消和确认按钮都没有响应
+- 用户被迫刷新页面重新操作
+
+### 修复内容
+
+1. **完全重写部署确认对话框**
+   - 放弃使用Bootstrap模态框组件，改用原生HTML/CSS/JavaScript实现
+   - 从头实现一个极简版确认对话框，完全独立于Bootstrap模态框系统
+   - 使用内联样式和绝对定位，确保对话框位置和样式稳定
+   - 重写交互逻辑，确保按钮点击事件可靠触发
+
+2. **解耦前端交互逻辑**
+   - 移除对`modal_manager.js`的依赖
+   - 移除所有Bootstrap模态框相关的属性和事件
+   - 简化事件处理逻辑，减少代码层级和复杂度
+   - 将样式直接内联到元素上，减少CSS冲突可能性
+
+3. **优化用户体验**
+   - 确保对话框总是居中显示，在所有分辨率下表现一致
+   - 增强对话框元素的可点击性，提高交互区域
+   - 添加鼠标悬停效果，提供更明确的视觉反馈
+   - 添加ESC键关闭对话框功能
+
+### 技术细节
+
+1. **HTML结构与样式优化**
+   ```html
+   <!-- 极简版部署确认对话框 -->
+   <div id="simpleDeploy" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 9999;">
+     <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: white; padding: 20px; border-radius: 8px; width: 450px; box-shadow: 0 5px 15px rgba(0,0,0,.5);">
+       <!-- 对话框内容 -->
+     </div>
+   </div>
+   ```
+
+2. **事件处理重构**
+   ```javascript
+   // 简化的事件处理逻辑
+   confirmBtn.addEventListener('click', function() {
+     // 显示加载状态
+     this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 部署中...';
+     this.disabled = true;
+     
+     // 直接提交表单
+     deployForm.submit();
+     
+     // 关闭对话框
+     closeDialog();
+   });
+   ```
+
+3. **移除复杂样式依赖**
+# IPSec与防火墙联动策略管理变更日志
+
 ## 2024-07-10 华为USG5500防火墙适配增强
 
 ### 功能背景
