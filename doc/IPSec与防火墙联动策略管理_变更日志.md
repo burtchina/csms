@@ -1,5 +1,102 @@
 # IPSec与防火墙联动策略管理变更日志
 
+## 2024-07-10 华为USG5500防火墙适配增强
+
+### 功能背景
+
+为了满足华为USG5500系列防火墙设备的部署需求，需要对现有的IPSec与防火墙联动策略管理系统进行适配增强，使其能够支持USG5500设备的特殊配置参数和命令语法。
+
+### 实现内容
+
+1. **增强防火墙连接适配器架构**
+   - 新增`HuaweiUSG5500Connector`类，继承自`HuaweiFirewallConnector`
+   - 重写命令生成方法，适配USG5500特有命令格式
+   - 针对USG5500优化策略部署和状态解析逻辑
+
+2. **优化设备识别机制**
+   - 修改`ConnectorFactory`类，增加对USG5500设备型号的精确识别
+   - 根据设备型号自动选择最合适的连接器实现
+   - 提升系统对华为设备系列的兼容性和适配精度
+
+3. **增加USG5500专属配置模板**
+   - 添加华为USG5500防火墙专用的策略模板
+   - 包含安全区域、接口命名等USG5500特有配置项
+   - 优化界面交互，使用户可以便捷配置USG5500特有参数
+
+4. **适配USG5500命令语法**
+   - 支持USG5500安全区域（security-zone）配置
+   - 适配USG5500特有的接口命名和参数格式
+   - 优化IPSec策略与防火墙规则的联动配置命令
+
+### 技术实现
+
+1. **连接器实现**
+   ```python
+   class HuaweiUSG5500Connector(HuaweiFirewallConnector):
+       """华为USG5500防火墙连接器，扩展华为通用连接器，针对USG5500进行定制"""
+       
+       def __init__(self, timeout: int = 30, retry_count: int = 3, retry_interval: int = 5):
+           super().__init__(timeout, retry_count, retry_interval)
+           self.device_model = "USG5500"
+       
+       def _generate_firewall_commands(self, policy_config: Dict[str, Any]) -> List[str]:
+           # 重写命令生成方法，适配USG5500
+           commands = []
+           # ... USG5500特定命令生成逻辑 ...
+           return commands
+   ```
+
+2. **连接器工厂调整**
+   ```python
+   class ConnectorFactory:
+       @staticmethod
+       def get_connector(device: Device) -> FirewallConnector:
+           # ... 现有代码 ...
+           if "huawei" in manufacturer or "hw" in manufacturer:
+               # 检查是否为USG5500系列
+               if "usg5500" in model or "5500" in model:
+                   logging.info(f"为设备 {device.name} 选择华为USG5500防火墙连接器")
+                   return HuaweiUSG5500Connector()
+               # ... 其他华为设备处理 ...
+   ```
+
+3. **USG5500特定模板**
+   ```json
+   {
+     "name": "华为USG5500基本安全策略",
+     "type": "ipsec",
+     "description": "华为USG5500防火墙专用IPSec策略模板",
+     "config": {
+       "version": "1.0",
+       "firewall_settings": {
+         // ... 基本配置 ...
+       },
+       "usg_settings": {
+         "interface": "GigabitEthernet 1/0/0",
+         "security_zone_in": "untrust",
+         "security_zone_out": "trust"
+       }
+     }
+   }
+   ```
+
+### 改进效果
+
+1. **设备兼容性提升**
+   - 系统可以精确识别并适配华为USG5500系列防火墙
+   - 生成的配置命令符合USG5500语法要求和最佳实践
+   - 提高策略部署成功率和安全策略有效性
+
+2. **用户体验优化**
+   - 提供USG5500专用模板，简化配置流程
+   - 自动适配设备特性，减少用户手动调整配置的工作量
+   - 界面动态调整，显示USG5500相关的特定配置选项
+
+3. **系统扩展性增强**
+   - 完善了防火墙连接适配器架构，便于后续支持更多设备型号
+   - 优化了命令生成和解析逻辑，提高系统稳定性
+   - 加强了设备识别和适配机制，提升系统整体适配能力
+
 ## 2024-07-05 修复策略模板应用功能
 
 ### 问题背景
