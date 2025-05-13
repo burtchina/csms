@@ -62,7 +62,8 @@ def create_app(config_name=None):
         os.makedirs(data_dir)
     
     # 加载配置
-    app.config.from_object('src.config.Config')
+    from src.config import get_config
+    app.config.from_object(get_config(config_name))
     
     # 明确设置数据库URI
     sqlite_db_path = os.path.join(data_dir, 'dev.sqlite')
@@ -78,7 +79,11 @@ def create_app(config_name=None):
     login_manager.init_app(app)
     
     # 初始化CSRFProtect
-    csrf = CSRFProtect(app)
+    if app.config.get('WTF_CSRF_ENABLED', True):
+        csrf = CSRFProtect(app)
+        logger.info("已启用CSRF保护")
+    else:
+        logger.info("CSRF保护已禁用（开发环境模式）")
     
     # 登录管理器初始化
     login_manager.login_view = 'auth.login'
@@ -160,9 +165,18 @@ def create_app(config_name=None):
     # 添加全局上下文处理器
     @app.context_processor
     def inject_global_vars():
-        return {
-            'enhanced_monitor_available': has_enhanced_monitor
-        }
+        # 添加CSRF token处理
+        if not app.config.get('WTF_CSRF_ENABLED', True):
+            def empty_csrf_token():
+                return ''
+            return {
+                'enhanced_monitor_available': has_enhanced_monitor,
+                'csrf_token': empty_csrf_token
+            }
+        else:
+            return {
+                'enhanced_monitor_available': has_enhanced_monitor
+            }
     
     # 首页路由
     @app.route('/')
